@@ -1,7 +1,6 @@
 // import { useState } from "react";
 import { Link } from "react-router";
 import {
-  IconArrowRight,
   IconEye,
   IconEyeOff,
   IconLock,
@@ -10,7 +9,6 @@ import {
 } from "@tabler/icons-react";
 
 import {
-  Button,
   Checkbox,
   PasswordInput,
   TextInput,
@@ -184,7 +182,8 @@ export default function Login() {
             </div>
 
             {/* Login button */}
-            <Button
+            <Link to={'/dashboard'}>Ok</Link>
+            {/* <Button
               type="submit"
               fullWidth
               size="md"
@@ -194,7 +193,7 @@ export default function Login() {
               className="mt-2"
             >
               Se connecter
-            </Button>
+            </Button> */}
           </form>
 
           {/* Footer */}
