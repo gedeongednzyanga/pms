@@ -44,6 +44,7 @@ pub fn run() {
         })
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
         .invoke_handler(tauri::generate_handler![
             // USERS
             commands::user_cmd::create_user_cmd,
@@ -51,6 +52,9 @@ pub fn run() {
             commands::user_cmd::authenticate_cmd,
             commands::user_cmd::delete_user_cmd,
             commands::user_cmd::get_users_cmd,
+
+            // DETENUES
+            commands::inmate_cmd::save_inmate_cmd,
         ])
         .run(tauri::generate_context!())
         .expect("Erreur au lancement de Tauri");

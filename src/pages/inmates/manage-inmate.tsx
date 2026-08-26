@@ -1,7 +1,6 @@
 import { useState } from "react";
 import {
   IconArrowLeft,
-  IconCalendar,
   IconCamera,
   IconDeviceFloppy,
   IconId,
@@ -16,7 +15,6 @@ import {
   Button,
   Card,
   Divider,
-  FileInput,
   Grid,
   Group,
   Image,
@@ -31,6 +29,11 @@ import {
 } from "@mantine/core";
 
 import { useNavigate, useParams } from "react-router";
+import { open } from "@tauri-apps/plugin-dialog";
+import { invoke } from "@tauri-apps/api/core";
+import { readFile } from "@tauri-apps/plugin-fs";
+import { DateInput, DatePickerInput } from "@mantine/dates";
+import dayjs from "dayjs";
 
 export default function ManageInmate() {
   const navigate = useNavigate();
@@ -38,7 +41,9 @@ export default function ManageInmate() {
 
   const isEditing = Boolean(id);
 
-  const [image, setImage] = useState<File | null>(null);
+  // const [image, setImage] = useState<File | null>(null);
+ const [imagePath, setImagePath] = useState<string | null>(null);
+ const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     code: "",
@@ -73,23 +78,127 @@ export default function ManageInmate() {
     }));
   };
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSelectPhoto = async () => {
+    try {
+        const selected = await open({
+            multiple: false,
+            directory: false,
+            filters: [
+                {
+                    name: "Images",
+                    extensions: [
+                        "jpg",
+                        "jpeg",
+                        "png",
+                        "webp",
+                    ],
+                },
+            ],
+        });
+
+        if (typeof selected !== "string") {
+            return;
+        }
+
+        console.log("Photo sélectionnée :", selected);
+
+        setImagePath(selected);
+
+        // Lire le fichier depuis le système
+        const bytes = await readFile(selected);
+
+        // Déterminer le type MIME
+        const extension =
+            selected.split(".").pop()?.toLowerCase();
+
+        const mimeType =
+            extension === "png"
+                ? "image/png"
+                : extension === "webp"
+                ? "image/webp"
+                : "image/jpeg";
+
+        // Transformer les bytes en Blob
+        const blob = new Blob([bytes], {
+            type: mimeType,
+        });
+
+        // Créer une URL temporaire
+        const previewUrl = URL.createObjectURL(blob);
+
+        setImagePreview(previewUrl);
+
+    } catch (error) {
+        console.error(
+            "Erreur sélection photo :",
+            error
+        );
+    }
+};
+
+  const handleSubmit = async (
+    event: React.FormEvent
+) => {
     event.preventDefault();
 
-    console.log({
-      ...form,
-      image,
-    });
+    try {
+        const inmateId = await invoke<string>(
+            "save_inmate_cmd",
+            {
+                inmate: {
+                    code: form.code,
+                    cell_id: form.cell_id,
 
-    // Ici tu pourras appeler ta commande Tauri :
-    //
-    // await invoke("save_inmate_cmd", {
-    //   inmate: form,
-    //   imagePath: imagePath,
-    // });
+                    firstname: form.firstname,
+                    middlename:
+                        form.middlename || null,
+                    lastname: form.lastname,
 
-    navigate(`/inmates/${id ?? "new"}`);
-  };
+                    dob: form.dob,
+                    sex: form.sex,
+                    address: form.address,
+                    marital_status:
+                        form.marital_status,
+
+                    complexion: form.complexion,
+                    eye_color: form.eye_color,
+
+                    crime_ids: form.crime_ids,
+
+                    sentence: form.sentence,
+                    date_from: form.date_from,
+                    date_to:
+                        form.date_to || null,
+
+                    emergency_name:
+                        form.emergency_name || null,
+
+                    emergency_relation:
+                        form.emergency_relation || null,
+
+                    emergency_contact:
+                        form.emergency_contact || null,
+
+                    image_path: imagePath,
+                },
+            }
+        );
+
+        console.log(
+            "Détenu enregistré :",
+            inmateId
+        );
+
+        navigate(`/inmates/${inmateId}`);
+
+    } catch (error) {
+        console.error(
+            "Erreur enregistrement détenu :",
+            error
+        );
+    }
+};
+  
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -281,7 +390,20 @@ export default function ManageInmate() {
               <Grid>
 
                 <Grid.Col span={{ base: 12, md: 4 }}>
-                  <TextInput
+                  <DateInput
+    label="Date de naissance"
+    placeholder="Sélectionner une date"
+    required
+    value={form.dob ? new Date(form.dob) : null}
+    onChange={(date) =>
+        updateField(
+            "dob",
+            date ? dayjs(date).format("YYYY-MM-DD") : ""
+        )
+    }
+    valueFormat="DD/MM/YYYY"
+/>
+                  {/* <TextInput
                     type="date"
                     label="Date de naissance"
                     required
@@ -290,7 +412,7 @@ export default function ManageInmate() {
                       updateField("dob", e.currentTarget.value)
                     }
                     leftSection={<IconCalendar size={17} />}
-                  />
+                  /> */}
                 </Grid.Col>
 
                 <Grid.Col span={{ base: 12, md: 4 }}>
@@ -487,32 +609,34 @@ export default function ManageInmate() {
               <Grid>
 
                 <Grid.Col span={{ base: 12, md: 6 }}>
-                  <TextInput
-                    type="date"
-                    label="Début de la peine"
-                    required
-                    value={form.date_from}
-                    onChange={(e) =>
-                      updateField(
-                        "date_from",
-                        e.currentTarget.value
-                      )
-                    }
+                  <DatePickerInput
+                      label="Début de la peine"
+                      placeholder="Sélectionner une date"
+                      required
+                      value={form.date_from ? new Date(form.date_from) : null}
+                      onChange={(date) =>
+                          updateField(
+                              "date_from",
+                              date ? dayjs(date).format("YYYY-MM-DD") : ""
+                          )
+                      }
+                      valueFormat="DD/MM/YYYY"
                   />
                 </Grid.Col>
 
                 <Grid.Col span={{ base: 12, md: 6 }}>
-                  <TextInput
-                    type="date"
+                  <DatePickerInput
                     label="Fin de la peine"
-                    value={form.date_to}
-                    onChange={(e) =>
-                      updateField(
-                        "date_to",
-                        e.currentTarget.value
-                      )
+                    placeholder="Sélectionner une date"
+                    value={form.date_to ? new Date(form.date_to) : null}
+                    onChange={(date) =>
+                        updateField(
+                            "date_to",
+                            date ? dayjs(date).format("YYYY-MM-DD") : ""
+                        )
                     }
-                  />
+                    valueFormat="DD/MM/YYYY"
+                />
                 </Grid.Col>
 
               </Grid>
@@ -617,113 +741,103 @@ export default function ManageInmate() {
           {/* =================================================
               PHOTO
           ================================================== */}
-
           <Card
+    withBorder
+    radius="md"
+    shadow="sm"
+>
+    <Card.Section
+        withBorder
+        inheritPadding
+        py="md"
+    >
+        <Group>
+            <Paper
+                p="xs"
+                radius="md"
+                bg="violet.0"
+                c="violet"
+            >
+                <IconCamera size={20} />
+            </Paper>
+
+            <div>
+                <Text fw={600}>
+                    Photo du détenu
+                </Text>
+
+                <Text size="xs" c="dimmed">
+                    Ajoutez une photo d'identification
+                </Text>
+            </div>
+        </Group>
+    </Card.Section>
+
+    <Stack p="lg">
+        <Grid align="center">
+
+            <Grid.Col span={{ base: 12, md: 6 }}>
+                <Button
+                    leftSection={<IconCamera size={17} />}
+                    onClick={handleSelectPhoto}
+                >
+                    Sélectionner une photo
+                </Button>
+
+                {imagePath && (
+                    <Text
+                        size="xs"
+                        c="dimmed"
+                        mt="xs"
+                        lineClamp={1}
+                    >
+                        {imagePath}
+                    </Text>
+                )}
+            </Grid.Col>
+
+            <Grid.Col span={{ base: 12, md: 6 }}>
+    {imagePreview ? (
+        <Image
+            src={imagePreview}
+            h={180}
+            w="100%"
+            fit="contain"
+            radius="md"
+            fallbackSrc=""
+        />
+    ) : (
+        <Paper
+            h={180}
             withBorder
             radius="md"
-            shadow="sm"
-          >
-
-            <Card.Section
-              withBorder
-              inheritPadding
-              py="md"
+            className="
+                flex
+                items-center
+                justify-center
+                border-dashed
+            "
+        >
+            <Stack
+                align="center"
+                gap={4}
             >
+                <IconCamera
+                    size={32}
+                    className="text-gray-400"
+                />
 
-              <Group>
-
-                <Paper
-                  p="xs"
-                  radius="md"
-                  bg="violet.0"
-                  c="violet"
-                >
-                  <IconCamera size={20} />
-                </Paper>
-
-                <div>
-                  <Text fw={600}>
-                    Photo du détenu
-                  </Text>
-
-                  <Text size="xs" c="dimmed">
-                    Ajoutez une photo d'identification
-                  </Text>
-                </div>
-
-              </Group>
-
-            </Card.Section>
-
-            <Stack p="lg">
-
-              <Grid align="center">
-
-                <Grid.Col span={{ base: 12, md: 6 }}>
-
-                  <FileInput
-                    label="Photo"
-                    placeholder="Sélectionner une image"
-                    accept="image/png,image/jpeg,image/webp"
-                    leftSection={
-                      <IconCamera size={17} />
-                    }
-                    value={image}
-                    onChange={setImage}
-                    clearable
-                  />
-
-                </Grid.Col>
-
-                <Grid.Col span={{ base: 12, md: 6 }}>
-
-                  {image ? (
-                    <Image
-                      src={URL.createObjectURL(image)}
-                      h={180}
-                      w="100%"
-                      fit="contain"
-                      radius="md"
-                      fallbackSrc=""
-                    />
-                  ) : (
-                    <Paper
-                      h={180}
-                      withBorder
-                      radius="md"
-                      className="
-                        flex
-                        items-center
-                        justify-center
-                        border-dashed
-                      "
-                    >
-                      <Stack
-                        align="center"
-                        gap={4}
-                      >
-                        <IconCamera
-                          size={32}
-                          className="text-gray-400"
-                        />
-
-                        <Text
-                          size="xs"
-                          c="dimmed"
-                        >
-                          Aperçu de la photo
-                        </Text>
-                      </Stack>
-                    </Paper>
-                  )}
-
-                </Grid.Col>
-
-              </Grid>
-
+                <Text size="xs" c="dimmed">
+                    Aperçu de la photo
+                </Text>
             </Stack>
+        </Paper>
+    )}
+</Grid.Col>
 
-          </Card>
+        </Grid>
+    </Stack>
+</Card>
 
 
           {/* =================================================
