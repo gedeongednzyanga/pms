@@ -15,6 +15,8 @@ import {
   Menu,
   Text,
 } from "@mantine/core";
+import { useAuth } from "../../services/AuthContext";
+import { useNavigate } from "react-router";
 
 type Props = {
   onToggleSidebar?: () => void;
@@ -23,6 +25,18 @@ type Props = {
 export default function TopMenu({
   onToggleSidebar,
 }: Props) {
+
+  const navigate = useNavigate();
+  const {
+    user,
+    logout,
+  } = useAuth();
+
+  const handleLogout = async () => {
+    await logout();
+    navigate("/login", { replace: true });
+  };
+
   return (
     <header
       className="
@@ -142,7 +156,7 @@ export default function TopMenu({
                     lh={1.2}
                     className="text-slate-800"
                   >
-                    Gédéon
+                    {user?.first_name} {user?.last_name}
                   </Text>
 
                   <Text
@@ -150,7 +164,7 @@ export default function TopMenu({
                     c="dimmed"
                     lh={1.2}
                   >
-                    Administrateur
+                    @{user?.user_name}
                   </Text>
 
                 </div>
@@ -168,14 +182,14 @@ export default function TopMenu({
                 size="sm"
                 fw={600}
               >
-                Gédéon
+                {user?.first_name} {user?.last_name}
               </Text>
 
               <Text
                 size="xs"
                 c="dimmed"
               >
-                Administrateur
+                @{user?.user_name}
               </Text>
 
             </div>
@@ -214,9 +228,7 @@ export default function TopMenu({
                   stroke={1.7}
                 />
               }
-              onClick={() => {
-                console.log("Logout");
-              }}
+              onClick={() => handleLogout()}
             >
               Déconnexion
             </Menu.Item>

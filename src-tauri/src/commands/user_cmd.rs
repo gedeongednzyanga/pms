@@ -3,9 +3,7 @@ use tauri::State;
 use crate::db::{users};
 use crate::models::pagination::PaginatedResponse;
 use crate::models::user::{
-    LoginRequest,
-    User,
-    UserInput,
+    AuthSession, LoginRequest, User, UserInput,
 };
 use crate::state::AppState;
 
@@ -30,8 +28,120 @@ pub async fn update_user_cmd(
 pub async fn authenticate_cmd(
     state: State<'_, AppState>,
     data: LoginRequest,
+) -> Result<AuthSession, String> {
+
+    users::authenticate(
+        &state.db,
+        data,
+    ).await
+}
+
+// RESTAURATION DE SESSION
+// =======================
+
+#[tauri::command]
+pub async fn get_current_user_cmd(
+    state: State<'_, AppState>,
+    token: String,
 ) -> Result<User, String> {
-    users::authenticate(&state.db, data).await
+
+    let session = sqlx::query_as::<
+        _,
+        (String, String, String)
+    >(
+        r#"
+        SELECT
+            s.user_id,
+            s.token,
+            s.expires_at
+        FROM sessions s
+        WHERE s.token = ?
+        LIMIT 1
+        "#
+    )
+    .bind(&token)
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    let (user_id, _, expires_at) =
+        match session {
+
+            Some(session) => session,
+
+            None => {
+                return Err(
+                    "Session invalide".into()
+                );
+            }
+        };
+
+    let expiration =
+        chrono::DateTime::parse_from_rfc3339(
+            &expires_at
+        )
+        .map_err(|e| e.to_string())?;
+
+    if expiration < chrono::Utc::now() {
+        sqlx::query(
+            "DELETE FROM sessions WHERE token = ?"
+        )
+        .bind(&token)
+        .execute(&state.db)
+        .await
+        .map_err(|e| e.to_string())?;
+
+        return Err(
+            "Session expirée".into()
+        );
+    }
+
+    let user = sqlx::query_as::<_, User>(
+        r#"
+        SELECT
+            id,
+            first_name,
+            last_name,
+            user_name,
+            created_at,
+            updated_at
+        FROM users
+        WHERE id = ?
+        LIMIT 1
+        "#
+    )
+    .bind(user_id)
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    match user {
+        Some(user) => Ok(user),
+
+        None => Err(
+            "Utilisateur introuvable".into()
+        ),
+    }
+}
+
+// DECONNEXION
+// ===========
+
+#[tauri::command]
+pub async fn logout_cmd(
+    state: State<'_, AppState>,
+    token: String,
+) -> Result<(), String> {
+
+    sqlx::query(
+        "DELETE FROM sessions WHERE token = ?"
+    )
+    .bind(token)
+    .execute(&state.db)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    Ok(())
 }
 
 #[tauri::command]

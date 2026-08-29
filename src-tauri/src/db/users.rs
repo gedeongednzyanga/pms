@@ -1,8 +1,61 @@
 use sqlx::SqlitePool;
 
-use crate::models::{pagination::PaginatedResponse, user::{
-    LoginRequest, User, UserInput,
-}};
+use crate::{auth::session, models::{pagination::PaginatedResponse, user::{
+    AuthSession, LoginRequest, User, UserInput, UserWithPassword,
+}}};
+
+use crate::auth::password::verify_password;
+
+pub async fn create_default_admin(
+    pool: &SqlitePool,
+) -> Result<(), String> {
+
+    let exists: Option<(String,)> = sqlx::query_as(
+        r#"
+        SELECT id
+        FROM users
+        WHERE user_name = ?
+        LIMIT 1
+        "#
+    )
+    .bind("admin")
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    if exists.is_some() {
+        return Ok(());
+    }
+
+    let password_hash =
+        crate::auth::password::hash_password(
+            "admin123"
+        )?;
+
+    sqlx::query(
+        r#"
+        INSERT INTO users (
+            id,
+            first_name,
+            last_name,
+            user_name,
+            password
+        )
+        VALUES (?, ?, ?, ?, ?)
+        "#
+    )
+    .bind("U001")
+    .bind("Admin")
+    .bind("PMS")
+    .bind("admin")
+    .bind(password_hash)
+    .execute(pool)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
 
 pub async fn create_user(
     pool: &SqlitePool,
@@ -180,9 +233,9 @@ pub async fn update_user(
 pub async fn authenticate(
     pool: &SqlitePool,
     data: LoginRequest,
-) -> Result<User, String> {
+) -> Result<AuthSession, String> {
 
-    let user = sqlx::query_as::<_, User>(
+    let user = sqlx::query_as::<_, UserWithPassword>(
         r#"
         SELECT
             id,
@@ -204,21 +257,66 @@ pub async fn authenticate(
 
     let user = match user {
         Some(user) => user,
+
         None => {
-            return Err("Nom d'utilisateur ou mot de passe incorrect".into());
+            return Err(
+                "Nom d'utilisateur ou mot de passe incorrect"
+                    .into()
+            );
         }
     };
 
-    let stored_password = user
-        .password
-        .as_deref()
-        .unwrap_or("");
+    let stored_password =
+        user.password
+            .as_deref()
+            .unwrap_or("");
 
-    if stored_password != data.password {
-        return Err("Nom d'utilisateur ou mot de passe incorrect".into());
+    let valid =
+        verify_password(
+            &data.password,
+            stored_password,
+        )?;
+
+    if !valid {
+        return Err(
+            "Nom d'utilisateur ou mot de passe incorrect"
+                .into()
+        );
     }
 
-    Ok(user)
+    let public_user = User {
+        id: user.id,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        user_name: user.user_name,
+        created_at: user.created_at,
+        updated_at: user.updated_at,
+    };
+
+    session::create_session(
+        pool,
+        public_user,
+    )
+    .await
+}
+
+// Netoyqge de session
+pub async fn cleanup_sessions(
+    pool: &SqlitePool,
+) -> Result<(), String> {
+
+    sqlx::query(
+        r#"
+        DELETE FROM sessions
+        WHERE expires_at < ?
+        "#
+    )
+    .bind(chrono::Utc::now().to_rfc3339())
+    .execute(pool)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    Ok(())
 }
 
 pub async fn delete_user(

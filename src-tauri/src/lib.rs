@@ -6,6 +6,7 @@ pub mod state;
 pub mod commands;
 pub mod db;
 pub mod models;
+pub mod auth;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -36,6 +37,16 @@ pub fn run() {
                     .await
                     .expect("Erreur migrations");
 
+                // UTILISATEUR ADMIN PAR DEFAUT
+                db::users::create_default_admin(&pool).await
+                .expect(
+                    "Impossible de créer l'utilisateur admin"
+                );
+
+                println!(
+                    "Utilisateur admin vérifié !"
+                );
+
                 // ✅ Gérer AppState au lieu de pool directement
                 app.manage(AppState { db: pool.clone() });
 
@@ -52,6 +63,8 @@ pub fn run() {
             commands::user_cmd::authenticate_cmd,
             commands::user_cmd::delete_user_cmd,
             commands::user_cmd::get_users_cmd,
+            commands::user_cmd::get_current_user_cmd,
+            commands::user_cmd::logout_cmd,
 
             // DETENUES
             commands::inmate_cmd::save_inmate_cmd,
