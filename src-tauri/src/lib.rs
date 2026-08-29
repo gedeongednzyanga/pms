@@ -70,6 +70,10 @@ pub fn run() {
             commands::crime_cmd::get_crimes_cmd,
             commands::crime_cmd::create_crime_cmd,
 
+            // PRISON
+            commands::prison_cmd::create_prison_cmd,
+            commands::prison_cmd::get_prisons_cmd,
+
             // DETENUES
             commands::inmate_cmd::save_inmate_cmd,
         ])

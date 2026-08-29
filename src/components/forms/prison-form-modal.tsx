@@ -1,24 +1,39 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+
 import {
+  IconBuilding,
+  IconCheck,
+  IconDeviceFloppy,
+  IconX,
+} from "@tabler/icons-react";
+
+import {
+  Alert,
   Button,
   Group,
   Modal,
   Select,
   Stack,
+  Textarea,
   TextInput,
-  Alert,
 } from "@mantine/core";
-import { IconAlertCircle, IconDeviceFloppy } from "@tabler/icons-react";
-import { Prison } from "../../pages/prisons/prisons-list";
 
+export type Prison = {
+  id: string;
+  prison_name: string;
+  address_prison: string | null;
+  statut_prison: string;
+  created_at: string;
+  updated_at: string;
+};
 
-interface PrisonFormModalProps {
+type PrisonFormModalProps = {
   opened: boolean;
   onClose: () => void;
   prison?: Prison | null;
-  onSuccess?: () => void;
-}
+  onSuccess?: (prison: Prison) => void;
+};
 
 export default function PrisonFormModal({
   opened,
@@ -26,54 +41,124 @@ export default function PrisonFormModal({
   prison,
   onSuccess,
 }: PrisonFormModalProps) {
+
   const isEditing = !!prison;
 
-  const [name, setName] = useState("");
-  const [status, setStatus] = useState<string>("1");
+  const [prisonName, setPrisonName] = useState("");
+  const [addressPrison, setAddressPrison] = useState("");
+  const [status, setStatus] = useState<string>("active");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  /**
+   * ============================
+   * Initialiser le formulaire
+   * ============================
+   */
   useEffect(() => {
-    if (opened) {
-      setName(prison?.name ?? "");
-      setStatus(prison?.status === 0 ? "0" : "1");
-      setError("");
-    }
+    if (!opened) return;
+
+    setPrisonName(prison?.prison_name ?? "");
+    setAddressPrison(prison?.address_prison ?? "");
+    setStatus(prison?.statut_prison ?? "active");
+
+    setError("");
   }, [opened, prison]);
 
+  /**
+   * ============================
+   * Enregistrer
+   * ============================
+   */
   const handleSubmit = async () => {
+
     setError("");
 
-    if (!name.trim()) {
-      setError("Le nom de la prison est obligatoire.");
+    const name = prisonName.trim();
+    const address = addressPrison.trim();
+
+    if (!name) {
+      setError(
+        "Le nom de la prison est obligatoire."
+      );
+      return;
+    }
+
+    if (!status) {
+      setError(
+        "Le statut de la prison est obligatoire."
+      );
       return;
     }
 
     try {
+
       setLoading(true);
 
-      const data = {
-        id: prison?.id ?? null,
-        name: name.trim(),
-        status: Number(status),
-      };
+      let savedPrison: Prison;
 
-      await invoke("save_prison_cmd", {
-        prison: data,
-      });
+      /**
+       * ============================
+       * MODIFICATION
+       * ============================
+       */
+      if (isEditing && prison) {
 
-      onSuccess?.();
+        savedPrison = await invoke<Prison>(
+          "update_prison_cmd",
+          {
+            id: prison.id,
+            data: {
+              prison_name: name,
+              address_prison: address,
+              statut_prison: status,
+            },
+          }
+        );
+
+      } else {
+
+        /**
+         * ============================
+         * CREATION
+         * ============================
+         */
+        savedPrison = await invoke<Prison>(
+          "create_prison_cmd",
+          {
+            data: {
+              prison_name: name,
+              address_prison: address,
+              statut_prison: status,
+            },
+          }
+        );
+      }
+
+      /**
+       * Informer le parent
+       */
+      onSuccess?.(savedPrison);
+
+      /**
+       * Fermer le modal
+       */
       onClose();
 
     } catch (err) {
-      console.error("Erreur enregistrement prison :", err);
+
+      console.error(
+        "Erreur enregistrement prison :",
+        err
+      );
 
       setError(
         typeof err === "string"
           ? err
           : "Une erreur est survenue lors de l'enregistrement."
       );
+
     } finally {
       setLoading(false);
     }
@@ -91,11 +176,14 @@ export default function PrisonFormModal({
       centered
       size="md"
     >
+
       <Stack gap="md">
 
+        {/* =========================
+            ERREUR
+        ========================== */}
         {error && (
           <Alert
-            icon={<IconAlertCircle size={18} />}
             color="red"
             variant="light"
           >
@@ -103,43 +191,81 @@ export default function PrisonFormModal({
           </Alert>
         )}
 
+        {/* =========================
+            NOM
+        ========================== */}
         <TextInput
-          label="Nom"
+          label="Nom de la prison"
           placeholder="Ex. Prison centrale de Goma"
-          value={name}
+          leftSection={
+            <IconBuilding size={17} />
+          }
+          value={prisonName}
           onChange={(event) =>
-            setName(event.currentTarget.value)
+            setPrisonName(
+              event.currentTarget.value
+            )
           }
           required
           disabled={loading}
         />
 
+        {/* =========================
+            ADRESSE
+        ========================== */}
+        <Textarea
+          label="Adresse de la prison"
+          placeholder="Ex. Avenue de la Prison, Goma"
+          minRows={3}
+          autosize
+          maxRows={5}
+          value={addressPrison}
+          onChange={(event) =>
+            setAddressPrison(
+              event.currentTarget.value
+            )
+          }
+          disabled={loading}
+        />
+
+        {/* =========================
+            STATUT
+        ========================== */}
         <Select
           label="Statut"
+          placeholder="Sélectionner un statut"
+          required
           value={status}
           onChange={(value) =>
-            setStatus(value ?? "1")
+            setStatus(value ?? "active")
           }
           data={[
             {
-              value: "1",
-              label: "Actif",
+              value: "active",
+              label: "Active",
             },
             {
-              value: "0",
-              label: "Inactif",
+              value: "desactive",
+              label: "Inactive",
             },
           ]}
           allowDeselect={false}
           disabled={loading}
         />
 
+        {/* =========================
+            ACTIONS
+        ========================== */}
         <Group
           justify="flex-end"
           mt="md"
         >
+
           <Button
             variant="default"
+            leftSection={
+              <IconX size={17} />
+            }
             onClick={onClose}
             disabled={loading}
           >
@@ -148,7 +274,13 @@ export default function PrisonFormModal({
 
           <Button
             leftSection={
-              <IconDeviceFloppy size={17} />
+              isEditing ? (
+                <IconCheck size={17} />
+              ) : (
+                <IconDeviceFloppy
+                  size={17}
+                />
+              )
             }
             loading={loading}
             onClick={handleSubmit}
@@ -157,9 +289,11 @@ export default function PrisonFormModal({
               ? "Enregistrer les modifications"
               : "Enregistrer"}
           </Button>
+
         </Group>
 
       </Stack>
+
     </Modal>
   );
 }

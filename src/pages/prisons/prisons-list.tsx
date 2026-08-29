@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+
 import {
   Eye,
   Pencil,
   Plus,
   Trash2,
   MoreHorizontal,
+  Search,
 } from "lucide-react";
 
 import {
@@ -13,23 +15,28 @@ import {
   Badge,
   Button,
   Card,
+  Center,
   Group,
+  Loader,
   Menu,
+  Pagination,
+  Stack,
   Table,
   Text,
+  TextInput,
   Title,
-  Loader,
-  Center,
-  Stack,
 } from "@mantine/core";
 
-export interface Prison {
-  id: number;
-  name: string;
-  status: number;
-  date_created: string;
-  delete_flag: number;
-}
+import { PaginatedResponse } from "../../interfaces/pagination";
+
+export type Prison = {
+  id: string;
+  prison_name: string;
+  address_prison: string | null;
+  statut_prison: string;
+  created_at: string;
+  updated_at: string;
+};
 
 interface PrisonListProps {
   onCreate: () => void;
@@ -45,25 +52,73 @@ export default function PrisonList({
   const [prisons, setPrisons] = useState<Prison[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [page, setPage] = useState(1);
+  const [perPage] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+
+  const [search, setSearch] = useState("");
+
+  /**
+   * ============================
+   * Charger les prisons
+   * ============================
+   */
   const loadPrisons = async () => {
     try {
       setLoading(true);
 
-      const result = await invoke<Prison[]>("get_prisons_cmd");
+      const result = await invoke<PaginatedResponse<Prison>>(
+        "get_prisons_cmd",
+        {
+          page,
+          per_page: perPage,
+          search: search.trim() || null,
+        }
+      );
 
-      setPrisons(result);
+      console.log("Prisons :", result);
+
+      setPrisons(result.data);
+      setTotalPages(result.total_pages);
+      setTotal(result.total);
     } catch (error) {
-      console.error("Erreur chargement des prisons :", error);
+      console.error(
+        "Erreur chargement des prisons :",
+        error
+      );
     } finally {
       setLoading(false);
     }
   };
 
+  /**
+   * ============================
+   * Charger au changement
+   * ============================
+   */
   useEffect(() => {
     loadPrisons();
-  }, []);
+  }, [page, search]);
 
-  const deletePrison = async (id: number) => {
+  /**
+   * ============================
+   * Recherche
+   * ============================
+   */
+  const handleSearch = (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    setSearch(event.currentTarget.value);
+    setPage(1);
+  };
+
+  /**
+   * ============================
+   * Suppression
+   * ============================
+   */
+  const deletePrison = async (id: string) => {
     const confirmed = window.confirm(
       "Voulez-vous vraiment supprimer définitivement cette prison ?"
     );
@@ -71,18 +126,43 @@ export default function PrisonList({
     if (!confirmed) return;
 
     try {
-      await invoke("delete_prison_cmd", { id });
+      setLoading(true);
 
-      await loadPrisons();
+      await invoke("delete_prison_cmd", {
+        id,
+      });
+
+      // Si on supprime le dernier élément de la page
+      if (prisons.length === 1 && page > 1) {
+        setPage((current) => current - 1);
+      } else {
+        await loadPrisons();
+      }
     } catch (error) {
-      console.error("Erreur suppression prison :", error);
+      console.error(
+        "Erreur suppression prison :",
+        error
+      );
+    } finally {
+      setLoading(false);
     }
   };
 
+  /**
+   * ============================
+   * Date
+   * ============================
+   */
   const formatDate = (date: string) => {
     if (!date) return "-";
 
-    return new Date(date).toLocaleString("fr-FR", {
+    const value = new Date(date);
+
+    if (Number.isNaN(value.getTime())) {
+      return date;
+    }
+
+    return value.toLocaleString("fr-FR", {
       dateStyle: "short",
       timeStyle: "short",
     });
@@ -95,13 +175,16 @@ export default function PrisonList({
       shadow="sm"
       p={0}
     >
-      {/* Header */}
+      {/* =========================
+          HEADER
+      ========================== */}
       <Group
         justify="space-between"
         px="lg"
         py="md"
         style={{
-          borderBottom: "1px solid var(--mantine-color-gray-3)",
+          borderBottom:
+            "1px solid var(--mantine-color-gray-3)",
         }}
       >
         <div>
@@ -126,8 +209,37 @@ export default function PrisonList({
         </Button>
       </Group>
 
-      {/* Table */}
-      <div style={{ overflowX: "auto" }}>
+      {/* =========================
+          TOOLBAR
+      ========================== */}
+      <Group
+        justify="space-between"
+        px="lg"
+        py="md"
+      >
+        <Text size="sm" c="dimmed">
+          {total} prison{total > 1 ? "s" : ""} enregistrée
+          {total > 1 ? "s" : ""}
+        </Text>
+
+        <TextInput
+          placeholder="Rechercher une prison..."
+          leftSection={<Search size={17} />}
+          value={search}
+          onChange={handleSearch}
+          w={280}
+          // clearable
+        />
+      </Group>
+
+      {/* =========================
+          TABLE
+      ========================== */}
+      <div
+        style={{
+          overflowX: "auto",
+        }}
+      >
         <Table
           striped
           highlightOnHover
@@ -136,7 +248,9 @@ export default function PrisonList({
         >
           <Table.Thead>
             <Table.Tr>
-              <Table.Th style={{ width: 60 }}>
+              <Table.Th
+                style={{ width: 60 }}
+              >
                 #
               </Table.Th>
 
@@ -146,6 +260,10 @@ export default function PrisonList({
 
               <Table.Th>
                 Nom
+              </Table.Th>
+
+              <Table.Th>
+                Adresse
               </Table.Th>
 
               <Table.Th
@@ -165,9 +283,10 @@ export default function PrisonList({
           </Table.Thead>
 
           <Table.Tbody>
+            {/* Loading */}
             {loading ? (
               <Table.Tr>
-                <Table.Td colSpan={5}>
+                <Table.Td colSpan={6}>
                   <Center py="xl">
                     <Stack
                       align="center"
@@ -186,120 +305,189 @@ export default function PrisonList({
                 </Table.Td>
               </Table.Tr>
             ) : prisons.length === 0 ? (
+              /* Aucun résultat */
               <Table.Tr>
-                <Table.Td colSpan={5}>
+                <Table.Td colSpan={6}>
                   <Center py="xl">
-                    <Text c="dimmed">
-                      Aucune prison enregistrée
-                    </Text>
+                    <Stack
+                      align="center"
+                      gap="xs"
+                    >
+                      <Text
+                        fw={500}
+                        c="dimmed"
+                      >
+                        {search
+                          ? "Aucune prison trouvée."
+                          : "Aucune prison enregistrée."}
+                      </Text>
+
+                      {search && (
+                        <Button
+                          variant="subtle"
+                          size="xs"
+                          onClick={() => {
+                            setSearch("");
+                            setPage(1);
+                          }}
+                        >
+                          Réinitialiser la recherche
+                        </Button>
+                      )}
+                    </Stack>
                   </Center>
                 </Table.Td>
               </Table.Tr>
             ) : (
-              prisons.map((prison, index) => (
-                <Table.Tr key={prison.id}>
-                  <Table.Td>
-                    {index + 1}
-                  </Table.Td>
+              prisons.map(
+                (prison, index) => (
+                  <Table.Tr key={prison.id}>
+                    {/* Numéro */}
+                    <Table.Td>
+                      {(page - 1) * perPage +
+                        index +
+                        1}
+                    </Table.Td>
 
-                  <Table.Td>
-                    <Text size="sm">
-                      {formatDate(
-                        prison.date_created
-                      )}
-                    </Text>
-                  </Table.Td>
+                    {/* Date */}
+                    <Table.Td>
+                      <Text size="sm">
+                        {formatDate(
+                          prison.created_at
+                        )}
+                      </Text>
+                    </Table.Td>
 
-                  <Table.Td>
-                    <Text fw={500}>
-                      {prison.name}
-                    </Text>
-                  </Table.Td>
+                    {/* Nom */}
+                    <Table.Td>
+                      <Text fw={500}>
+                        {prison.prison_name}
+                      </Text>
+                    </Table.Td>
 
-                  <Table.Td ta="center">
-                    {prison.status === 1 ? (
-                      <Badge
-                        color="green"
-                        variant="light"
-                        radius="xl"
+                    {/* Adresse */}
+                    <Table.Td>
+                      <Text
+                        size="sm"
+                        c={
+                          prison.address_prison
+                            ? undefined
+                            : "dimmed"
+                        }
                       >
-                        Actif
-                      </Badge>
-                    ) : (
-                      <Badge
-                        color="red"
-                        variant="light"
-                        radius="xl"
-                      >
-                        Inactif
-                      </Badge>
-                    )}
-                  </Table.Td>
+                        {prison.address_prison ||
+                          "-"}
+                      </Text>
+                    </Table.Td>
 
-                  <Table.Td ta="center">
-                    <Menu
-                      shadow="md"
-                      width={180}
-                      position="bottom-end"
-                    >
-                      <Menu.Target>
-                        <ActionIcon
-                          variant="subtle"
-                          color="gray"
+                    {/* Statut */}
+                    <Table.Td ta="center">
+                      {prison.statut_prison ===
+                      "active" ? (
+                        <Badge
+                          color="green"
+                          variant="light"
+                          radius="xl"
                         >
-                          <MoreHorizontal
-                            size={18}
-                          />
-                        </ActionIcon>
-                      </Menu.Target>
-
-                      <Menu.Dropdown>
-                        <Menu.Item
-                          leftSection={
-                            <Eye size={16} />
-                          }
-                          onClick={() =>
-                            onView(prison)
-                          }
-                        >
-                          Voir
-                        </Menu.Item>
-
-                        <Menu.Item
-                          leftSection={
-                            <Pencil size={16} />
-                          }
-                          onClick={() =>
-                            onEdit(prison)
-                          }
-                        >
-                          Modifier
-                        </Menu.Item>
-
-                        <Menu.Divider />
-
-                        <Menu.Item
+                          Actif
+                        </Badge>
+                      ) : (
+                        <Badge
                           color="red"
-                          leftSection={
-                            <Trash2 size={16} />
-                          }
-                          onClick={() =>
-                            deletePrison(
-                              prison.id
-                            )
-                          }
+                          variant="light"
+                          radius="xl"
                         >
-                          Supprimer
-                        </Menu.Item>
-                      </Menu.Dropdown>
-                    </Menu>
-                  </Table.Td>
-                </Table.Tr>
-              ))
+                          Inactif
+                        </Badge>
+                      )}
+                    </Table.Td>
+
+                    {/* Actions */}
+                    <Table.Td ta="center">
+                      <Menu
+                        shadow="md"
+                        width={180}
+                        position="bottom-end"
+                      >
+                        <Menu.Target>
+                          <ActionIcon
+                            variant="subtle"
+                            color="gray"
+                          >
+                            <MoreHorizontal
+                              size={18}
+                            />
+                          </ActionIcon>
+                        </Menu.Target>
+
+                        <Menu.Dropdown>
+                          <Menu.Item
+                            leftSection={
+                              <Eye size={16} />
+                            }
+                            onClick={() =>
+                              onView(prison)
+                            }
+                          >
+                            Voir
+                          </Menu.Item>
+
+                          <Menu.Item
+                            leftSection={
+                              <Pencil size={16} />
+                            }
+                            onClick={() =>
+                              onEdit(prison)
+                            }
+                          >
+                            Modifier
+                          </Menu.Item>
+
+                          <Menu.Divider />
+
+                          <Menu.Item
+                            color="red"
+                            leftSection={
+                              <Trash2 size={16} />
+                            }
+                            onClick={() =>
+                              deletePrison(
+                                prison.id
+                              )
+                            }
+                          >
+                            Supprimer
+                          </Menu.Item>
+                        </Menu.Dropdown>
+                      </Menu>
+                    </Table.Td>
+                  </Table.Tr>
+                )
+              )
             )}
           </Table.Tbody>
         </Table>
       </div>
+
+      {/* =========================
+          PAGINATION
+      ========================== */}
+      {!loading && totalPages > 1 && (
+        <Group
+          justify="center"
+          py="lg"
+          style={{
+            borderTop:
+              "1px solid var(--mantine-color-gray-3)",
+          }}
+        >
+          <Pagination
+            value={page}
+            onChange={setPage}
+            total={totalPages}
+          />
+        </Group>
+      )}
     </Card>
   );
 }
