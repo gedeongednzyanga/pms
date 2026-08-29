@@ -66,6 +66,10 @@ pub fn run() {
             commands::user_cmd::get_current_user_cmd,
             commands::user_cmd::logout_cmd,
 
+            // INFRACTIONS / CRIMES
+            commands::crime_cmd::get_crimes_cmd,
+            commands::crime_cmd::create_crime_cmd,
+
             // DETENUES
             commands::inmate_cmd::save_inmate_cmd,
         ])

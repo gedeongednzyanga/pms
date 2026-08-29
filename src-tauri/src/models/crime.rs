@@ -5,7 +5,7 @@ use sqlx::FromRow;
 pub struct Crime {
     pub id: String,
     pub crime_name: String,
-    pub description: String,
+    pub description_crime: String,
     pub statut_crime: String,
     pub created_at: Option<String>,
     pub updated_at: Option<String>,
@@ -14,6 +14,6 @@ pub struct Crime {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CrimeInput {
     pub crime_name: Option<String>,
-    pub description: Option<String>,
+    pub description_crime: Option<String>,
     pub statut_crime: Option<String>,
 }

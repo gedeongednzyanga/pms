@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 
 import {
@@ -22,27 +22,20 @@ import {
   Table,
   Text,
   TextInput,
-  Title,
 } from "@mantine/core";
 
 import { notifications } from "@mantine/notifications";
-
-type Crime = {
-  id: number;
-  name: string;
-  status: number;
-  delete_flag: number;
-  date_created: string;
-};
+import { Crime } from "../interfaces/crime";
+import { PaginatedResponse } from "../interfaces/pagination";
+import { useNavigate } from "react-router";
 
 type CrimesProps = {
   onCreate?: () => void;
-  onEdit?: (id: number) => void;
-  onView?: (id: number) => void;
+  onEdit?: (id: string) => void;
+  onView?: (id: string) => void;
 };
 
 export default function Crimes({
-  onCreate,
   onEdit,
   onView,
 }: CrimesProps) {
@@ -55,26 +48,38 @@ export default function Crimes({
 
   const [loading, setLoading] = useState(false);
 
-  const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  // const [crimes, setCrimes] = useState<Crime[]>([]);
+  const [totalPages, setTotalPages] = useState(1);
 
   /**
    * ============================
    * Charger les crimes
    * ============================
    */
+  
   const loadCrimes = async () => {
     try {
       setLoading(true);
 
-      const data = await invoke<Crime[]>("get_crimes_cmd");
+      const response = await invoke<PaginatedResponse<Crime>>(
+        "get_crimes_cmd",
+        {
+          page,
+          perPage,
+        }
+      );
 
-      setCrimes(data);
+      setCrimes(response.data);
+      setTotalPages(response.total_pages);
     } catch (error) {
       console.error(error);
 
+      setCrimes([]);
+
       notifications.show({
         title: "Erreur",
-        message: "Impossible de charger les crimes.",
+        message: "Impossible de charger les infractions.",
         color: "red",
       });
     } finally {
@@ -85,37 +90,6 @@ export default function Crimes({
   useEffect(() => {
     loadCrimes();
   }, []);
-
-  /**
-   * ============================
-   * Recherche
-   * ============================
-   */
-  const filteredCrimes = useMemo(() => {
-    const value = search.trim().toLowerCase();
-
-    if (!value) {
-      return crimes;
-    }
-
-    return crimes.filter((crime) =>
-      crime.name.toLowerCase().includes(value)
-    );
-  }, [crimes, search]);
-
-  /**
-   * ============================
-   * Pagination
-   * ============================
-   */
-  const totalPages = Math.ceil(
-    filteredCrimes.length / perPage
-  );
-
-  const paginatedCrimes = filteredCrimes.slice(
-    (page - 1) * perPage,
-    page * perPage
-  );
 
   /**
    * ============================
@@ -169,6 +143,8 @@ export default function Crimes({
     setPage(1);
   };
 
+  const navigate = useNavigate();
+
   return (
     <>
       <Stack gap="lg">
@@ -177,7 +153,9 @@ export default function Crimes({
         ========================== */}
         <Group justify="space-between">
           <div>
-            <Title order={2}>Crimes</Title>
+            <Text size="xl" fw={700}>
+              Infractions
+            </Text>
 
             <Text size="sm" c="dimmed">
               Gestion des infractions enregistrées
@@ -186,7 +164,7 @@ export default function Crimes({
 
           <Button
             leftSection={<IconPlus size={17} />}
-            onClick={onCreate}
+            onClick={() => navigate("/crimes/new")}
           >
             Nouveau crime
           </Button>
@@ -250,7 +228,7 @@ export default function Crimes({
             </Table.Thead>
 
             <Table.Tbody>
-              {paginatedCrimes.length === 0 ? (
+              {crimes.length === 0 ? (
                 <Table.Tr>
                   <Table.Td
                     colSpan={5}
@@ -265,7 +243,7 @@ export default function Crimes({
                   </Table.Td>
                 </Table.Tr>
               ) : (
-                paginatedCrimes.map(
+                crimes.map(
                   (crime, index) => (
                     <Table.Tr key={crime.id}>
                       {/* # */}
@@ -278,20 +256,20 @@ export default function Crimes({
                       {/* Date */}
                       <Table.Td>
                         {formatDate(
-                          crime.date_created
+                          crime.created_at
                         )}
                       </Table.Td>
 
                       {/* Nom */}
                       <Table.Td>
                         <Text fw={500}>
-                          {crime.name}
+                          {crime.crime_name}
                         </Text>
                       </Table.Td>
 
                       {/* Statut */}
                       <Table.Td ta="center">
-                        {crime.status === 1 ? (
+                        {crime.statut_crime === "active" ? (
                           <Badge
                             color="green"
                             variant="light"

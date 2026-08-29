@@ -1,15 +1,11 @@
-import { useState } from "react";
 import {
   IconBuilding,
-  IconChevronDown,
-  IconChevronRight,
   IconDashboard,
-  IconFileAnalytics,
   IconFileDescription,
-  IconFileText,
+  // IconFileText,
   IconList,
   IconLock,
-  IconReportAnalytics,
+  // IconReportAnalytics,
   IconSettings,
   IconTools,
   IconUser,
@@ -56,11 +52,11 @@ const mainMenus: MenuItem[] = [
     icon: IconUser,
     path: "/inmates",
   },
-  {
-    label: "Visiteurs",
-    icon: IconFileText,
-    path: "/visits",
-  },
+  // {
+  //   label: "Visiteurs",
+  //   icon: IconFileText,
+  //   path: "/visits",
+  // },
 ];
 
 /* =========================
@@ -96,15 +92,15 @@ const masterMenus: MenuItem[] = [
 
 const reportMenus: MenuItem[] = [
   {
-    label: "Dossiers mensuels",
+    label: "Rapports",
     icon: IconFileDescription,
     path: "/reports/record-history",
   },
-  {
-    label: "Visiteurs mensuels",
-    icon: IconReportAnalytics,
-    path: "/reports/visitor-report",
-  },
+  // {
+  //   label: "Visiteurs mensuels",
+  //   icon: IconReportAnalytics,
+  //   path: "/reports/visitor-report",
+  // },
 ];
 
 /* =========================
@@ -230,7 +226,7 @@ export function AppSidebar() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [reportsOpen, setReportsOpen] = useState(true);
+  // const [reportsOpen, setReportsOpen] = useState(true);
 
   const activePath = location.pathname;
 
@@ -242,12 +238,12 @@ export function AppSidebar() {
    * Vérifie si une page du groupe Reports
    * est actuellement active.
    */
-  const isReportActive = reportMenus.some(
-    (item) =>
-      item.path === activePath ||
-      (item.path &&
-        activePath.startsWith(`${item.path}/`))
-  );
+  // const isReportActive = reportMenus.some(
+  //   (item) =>
+  //     item.path === activePath ||
+  //     (item.path &&
+  //       activePath.startsWith(`${item.path}/`))
+  // );
 
   
   return (
@@ -347,7 +343,7 @@ export function AppSidebar() {
 
           <div className="mb-8">
             <SectionTitle>
-              Main
+              Menu
             </SectionTitle>
 
             <div className="flex flex-col gap-1.5">
@@ -368,7 +364,7 @@ export function AppSidebar() {
 
           <div className="mb-8">
             <SectionTitle>
-              Master List
+              Prison & Infractions
             </SectionTitle>
 
             <div className="flex flex-col gap-1.5">
@@ -390,11 +386,11 @@ export function AppSidebar() {
           <div className="mb-8">
 
             <SectionTitle>
-              Reports
+              Rapports
             </SectionTitle>
 
             {/* Reports parent */}
-            <UnstyledButton
+            {/* <UnstyledButton
               onClick={() =>
                 setReportsOpen(
                   (value) => !value
@@ -449,10 +445,10 @@ export function AppSidebar() {
                   className="text-slate-500"
                 />
               )}
-            </UnstyledButton>
+            </UnstyledButton> */}
 
             {/* Reports children */}
-            {reportsOpen && (
+            {/* {reportsOpen && ( */}
               <div className="mt-1.5 flex flex-col gap-1.5">
                 {reportMenus.map((item) => (
                   <MenuLink
@@ -464,7 +460,7 @@ export function AppSidebar() {
                   />
                 ))}
               </div>
-            )}
+            {/* )} */}
 
           </div>
 

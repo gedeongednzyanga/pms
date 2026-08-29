@@ -12,10 +12,15 @@ pub async fn create_crime(
 
     let id = Uuid::new_v4().to_string();
     let crime_name = data.crime_name.as_deref().unwrap_or("").trim();
+    let description_crime = data.description_crime.as_deref().unwrap_or("").trim();
     let statut_crime = data.statut_crime.as_deref().unwrap_or("").trim();
 
     if crime_name.is_empty() {
         return Err("La désignation est obligatoire".into());
+    }
+
+    if description_crime.is_empty() {
+        return Err("La description est obligatoire".into());
     }
 
     if statut_crime.is_empty() {
@@ -26,7 +31,7 @@ pub async fn create_crime(
     let exists: Option<(String,)> = sqlx::query_as(
         "SELECT id FROM crimes WHERE crime_name = ? LIMIT 1"
     )
-    .bind(crime_name)
+    .bind(&data.crime_name)
     .fetch_optional(pool)
     .await
     .map_err(|e| e.to_string())?;
@@ -44,15 +49,17 @@ pub async fn create_crime(
         INSERT INTO crimes (
             id,
             crime_name,
+            description_crime,
             statut_crime,
             created_at,
             updated_at
         )
-        VALUES (?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?)
         "#
     )
     .bind(&id)
     .bind(data.crime_name)
+    .bind(description_crime)
     .bind(data.statut_crime)
     .bind(&now)
     .bind(&now)
@@ -73,10 +80,11 @@ pub async fn get_crime_by_id(
         SELECT
             id,
             crime_name,
+            description_crime,
             statut_crime,
             created_at,
             updated_at
-        FROM users
+        FROM crimes
         WHERE id = ?
         LIMIT 1
         "#
@@ -84,7 +92,7 @@ pub async fn get_crime_by_id(
     .bind(id)
     .fetch_one(pool)
     .await
-    .map_err(|e| format!("Utilisateur introuvable : {}", e))
+    .map_err(|e| format!("Infraction introuvable : {}", e))
 }
 
 pub async fn update_crime(
@@ -210,10 +218,11 @@ pub async fn get_crimes(
         SELECT
             id,
             crime_name,
+            description_crime,
             statut_crime,
             created_at,
             updated_at
-        FROM users
+        FROM crimes
         WHERE
             ? = ''
             OR crime_name LIKE ?

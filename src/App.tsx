@@ -239,6 +239,11 @@ function App() {
               ========================== */}
 
               <Route
+                path="/crimes/new"
+                element={<ManageCrime />}
+              />
+
+              <Route
                 path="/crimes"
                 element={<Crimes />}
               />

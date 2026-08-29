@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+
 import { invoke } from "@tauri-apps/api/core";
 
 import {
@@ -18,10 +18,12 @@ import {
   TextInput,
   Title,
   Text,
+  Textarea,
 } from "@mantine/core";
 
 import { notifications } from "@mantine/notifications";
 import { useNavigate, useParams } from "react-router";
+import { useState } from "react";
 
 type Crime = {
   id: number;
@@ -39,50 +41,13 @@ export default function ManageCrime() {
   const isEdit = !!crimeId;
 
   const [name, setName] = useState("");
-  const [status, setStatus] = useState("1");
+  const [description, setDescription] = useState("");
+  const [status, setStatus] = useState("active");
 
   const [loading, setLoading] = useState(false);
-  const [loadingCrime, setLoadingCrime] = useState(false);
+  // const [loadingCrime, setLoadingCrime] = useState(false);
 
   const [error, setError] = useState("");
-
-  /**
-   * ============================
-   * Charger le crime
-   * ============================
-   */
-  const loadCrime = async () => {
-    if (!crimeId) return;
-
-    try {
-      setLoadingCrime(true);
-      setError("");
-
-      const crime = await invoke<Crime>(
-        "get_crime_cmd",
-        {
-          id: crimeId,
-        }
-      );
-
-      setName(crime.name);
-      setStatus(String(crime.status));
-    } catch (error) {
-      console.error(error);
-
-      setError(
-        typeof error === "string"
-          ? error
-          : "Impossible de charger les informations du crime."
-      );
-    } finally {
-      setLoadingCrime(false);
-    }
-  };
-
-  useEffect(() => {
-    loadCrime();
-  }, [crimeId]);
 
   /**
    * ============================
@@ -90,43 +55,37 @@ export default function ManageCrime() {
    * ============================
    */
   const handleSubmit = async (
-    event: React.FormEvent
+    event: React.SyntheticEvent
   ) => {
     event.preventDefault();
 
     setError("");
 
-    const crimeName = name.trim();
-
-    if (!crimeName) {
-      setError("Veuillez saisir le nom du crime.");
-      return;
-    }
-
     try {
       setLoading(true);
 
-      const crime = await invoke<Crime>(
-        "save_crime_cmd",
-        {
-          id: crimeId ?? null,
-          name: crimeName,
-          status: Number(status),
+       await invoke<Crime>("create_crime_cmd",
+        { 
+          data :{
+            crime_name: name,
+            description_crime: description,
+            statut_crime: status,
+          }
         }
       );
 
       notifications.show({
         title: isEdit
-          ? "Crime modifié"
-          : "Crime créé",
+          ? "Infraction modifiée"
+          : "Infraction créé",
         message: isEdit
-          ? "Le crime a été modifié avec succès."
-          : "Le crime a été créé avec succès.",
+          ? "L'infraction a été modifiée avec succès."
+          : "L'infraction a été créée avec succès.",
         color: "green",
       });
 
-      // Aller vers la page de détails
-      navigate(`/crimes/${crime.id}`);
+      // // Aller vers la page de détails
+      // navigate(`/crimes/${crime.id}`);
     } catch (error) {
       console.error(error);
 
@@ -152,20 +111,6 @@ export default function ManageCrime() {
       navigate("/crimes");
     }
   };
-
-  if (loadingCrime) {
-    return (
-      <Card
-        withBorder
-        radius="md"
-        shadow="sm"
-      >
-        <Text ta="center" c="dimmed" py="xl">
-          Chargement du crime...
-        </Text>
-      </Card>
-    );
-  }
 
   return (
     <div className="mx-auto w-full max-w-2xl">
@@ -233,6 +178,19 @@ export default function ManageCrime() {
                 disabled={loading}
               />
 
+              <Textarea
+                label="Description"
+                placeholder="Description de l'infraction..."
+                minRows={5}
+                required
+                value={description}
+                onChange={(e) =>
+                  setDescription(
+                    e.currentTarget.value
+                  )
+                }
+              />
+
               {/* Statut */}
               <Select
                 label="Statut"
@@ -240,15 +198,15 @@ export default function ManageCrime() {
                 required
                 value={status}
                 onChange={(value) =>
-                  setStatus(value ?? "1")
+                  setStatus(value ?? 'active')
                 }
                 data={[
                   {
-                    value: "1",
+                    value: 'active',
                     label: "Actif",
                   },
                   {
-                    value: "0",
+                    value: 'desactive',
                     label: "Inactif",
                   },
                 ]}
