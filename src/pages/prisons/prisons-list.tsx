@@ -42,12 +42,14 @@ interface PrisonListProps {
   onCreate: () => void;
   onEdit: (prison: Prison) => void;
   onView: (prison: Prison) => void;
+  refreshKey: number;
 }
 
 export default function PrisonList({
   onCreate,
   onEdit,
   onView,
+  refreshKey,
 }: PrisonListProps) {
   const [prisons, setPrisons] = useState<Prison[]>([]);
   const [loading, setLoading] = useState(true);
@@ -99,7 +101,7 @@ export default function PrisonList({
    */
   useEffect(() => {
     loadPrisons();
-  }, [page, search]);
+  }, [page, search, refreshKey]);
 
   /**
    * ============================
@@ -172,7 +174,7 @@ export default function PrisonList({
     <Card
       withBorder
       radius="md"
-      shadow="sm"
+      // shadow="sm"
       p={0}
     >
       {/* =========================

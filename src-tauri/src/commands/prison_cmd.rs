@@ -1,5 +1,6 @@
 use tauri::State;
 
+use crate::db::prisons::get_prisonss;
 use crate::db::{prisons};
 use crate::models::pagination::PaginatedResponse;
 use crate::models::prison::{
@@ -47,4 +48,13 @@ pub async fn get_prisons_cmd(
         per_page.unwrap_or(10),
         search,
     ).await
+}
+
+#[tauri::command]
+pub async fn get_prisonss_cmd(
+    state: State<'_, AppState>,
+) -> Result<Vec<Prison>, String> {
+    get_prisonss(&state.db)
+        .await
+        .map_err(|e| format!("Erreur récupération prisons : {}", e))
 }

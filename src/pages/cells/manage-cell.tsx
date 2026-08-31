@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import {
@@ -11,26 +12,36 @@ import {
   Button,
   Card,
   Group,
+  NumberInput,
   Select,
   Stack,
   TextInput,
   Title,
 } from "@mantine/core";
+import { notifications } from "@mantine/notifications";
 
-type Prison = {
-  id: number;
-  name: string;
-};
+interface Prison {
+  id: string;
+  prison_name: string;
+  address_prison: string;
+  statut_prison: string;
+  created_at: string;
+  updated_at: string;
+}
 
 type Cell = {
-  id: number;
-  prison_id: number;
-  name: string;
-  status: number;
+  id: string;
+  prison_id: string;
+  code: string | null;
+  cellule_name: string;
+  capacity: number;
+  statut_cellule: string;
+  created_at: string;
+  updated_at: string;
 };
 
 type ManageCellProps = {
-  cellId?: number;
+  cellId?: string;
   onSuccess?: (cell: Cell) => void;
   onCancel?: () => void;
 };
@@ -45,8 +56,9 @@ export default function ManageCell({
   const [prisons, setPrisons] = useState<Prison[]>([]);
 
   const [prisonId, setPrisonId] = useState<string | null>(null);
-  const [name, setName] = useState("");
-  const [status, setStatus] = useState<string>("1");
+  const [code, setCode] = useState("");
+  const [celluleName, setCelluleName] = useState("");
+  const [capacity, setCapacity] = useState<number | string>("");
 
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(false);
@@ -59,11 +71,14 @@ export default function ManageCell({
    */
   const loadPrisons = async () => {
     try {
-      const data = await invoke<Prison[]>("get_prisons_cmd");
+      setError("");
+
+      const data = await invoke<Prison[]>("get_prisonss_cmd");
 
       setPrisons(data);
     } catch (error) {
-      console.error(error);
+      console.error("Erreur récupération prisons :", error);
+
       setError("Impossible de charger la liste des prisons.");
     }
   };
@@ -78,22 +93,34 @@ export default function ManageCell({
 
     try {
       setLoadingData(true);
+      setError("");
 
-      const cell = await invoke<Cell>("get_cell_cmd", {
+     const cell = await invoke<Cell>("get_cellule_cmd", {
         id: cellId,
       });
 
-      setPrisonId(String(cell.prison_id));
-      setName(cell.name);
-      setStatus(String(cell.status));
+      setPrisonId(cell.prison_id);
+      setCode(cell.code ?? "");
+      setCelluleName(cell.cellule_name);
+      setCapacity(cell.capacity);
     } catch (error) {
-      console.error(error);
-      setError("Impossible de charger les informations de la cellule.");
+      console.error("Erreur récupération cellule :", error);
+
+      setError(
+        typeof error === "string"
+          ? error
+          : "Impossible de charger les informations de la cellule."
+      );
     } finally {
       setLoadingData(false);
     }
   };
 
+  /**
+   * ============================
+   * Initialisation
+   * ============================
+   */
   useEffect(() => {
     loadPrisons();
     loadCell();
@@ -112,24 +139,57 @@ export default function ManageCell({
       return;
     }
 
-    if (!name.trim()) {
+    if (!celluleName.trim()) {
       setError("Veuillez saisir le nom de la cellule.");
+      return;
+    }
+
+    if (!capacity || Number(capacity) <= 0) {
+      setError("Veuillez saisir une capacité valide.");
       return;
     }
 
     try {
       setLoading(true);
 
-      const cell = await invoke<Cell>("save_cell_cmd", {
-        id: cellId ?? null,
-        prisonId: Number(prisonId),
-        name: name.trim(),
-        status: Number(status),
-      });
+      // const cell = await invoke<Cell>("create_cellule_cmd", {
+      //   data: {
+      //     prison_id: prisonId,
+      //     code: code.trim() || null,
+      //     cellule_name: celluleName.trim(),
+      //     capacity: Number(capacity),
+      //   },
+      // });
+
+      const cell = isEdit
+        ? await invoke<Cell>("update_cellule_cmd", {
+            id: cellId,
+            data: {
+              prison_id: prisonId,
+              code: code.trim() || null,
+              cellule_name: celluleName.trim(),
+              capacity: Number(capacity),
+            },
+          })
+        : await invoke<Cell>("create_cellule_cmd", {
+            data: {
+              prison_id: prisonId,
+              code: code.trim() || null,
+              cellule_name: celluleName.trim(),
+              capacity: Number(capacity),
+            },
+          });
 
       onSuccess?.(cell);
+      notifications.show({
+        title: "Nouvelle cellule",
+        message:
+          "Cellule enregistrée avec succès.",
+        color: "green",
+      });
+
     } catch (error) {
-      console.error(error);
+      console.error("Erreur création cellule :", error);
 
       setError(
         typeof error === "string"
@@ -141,6 +201,11 @@ export default function ManageCell({
     }
   };
 
+  /**
+   * ============================
+   * Loading
+   * ============================
+   */
   if (loadingData) {
     return (
       <Card shadow="sm" radius="md" withBorder>
@@ -160,25 +225,23 @@ export default function ManageCell({
     >
       {/* Header */}
       <Group justify="space-between" mb="xl">
-        <div>
-          <Group gap="sm">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100">
-              <IconBuilding size={21} />
-            </div>
+        <Group gap="sm">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100">
+            <IconBuilding size={21} />
+          </div>
 
-            <div>
-              <Title order={3}>
-                {isEdit ? "Modifier la cellule" : "Nouvelle cellule"}
-              </Title>
+          <div>
+            <Title order={3}>
+              {isEdit ? "Modifier la cellule" : "Nouvelle cellule"}
+            </Title>
 
-              <div className="text-sm text-gray-500">
-                {isEdit
-                  ? "Modifier les informations de la cellule"
-                  : "Ajouter une nouvelle cellule"}
-              </div>
+            <div className="text-sm text-gray-500">
+              {isEdit
+                ? "Modifier les informations de la cellule"
+                : "Ajouter une nouvelle cellule"}
             </div>
-          </Group>
-        </div>
+          </div>
+        </Group>
       </Group>
 
       {/* Error */}
@@ -193,16 +256,30 @@ export default function ManageCell({
         <Select
           label="Prison"
           placeholder="Sélectionner une prison"
+          description="Sélectionnez la prison à laquelle appartient la cellule"
           required
           searchable
           clearable
           leftSection={<IconBuilding size={17} />}
-          data={prisons.map((prison) => ({
-            value: String(prison.id),
-            label: prison.name,
-          }))}
+          data={prisons
+            .filter((prison) => prison.statut_prison === "active")
+            .map((prison) => ({
+              value: String(prison.id),
+              label: prison.prison_name,
+            }))}
           value={prisonId}
           onChange={setPrisonId}
+          disabled={loading}
+          nothingFoundMessage="Aucune prison trouvée"
+        />
+
+        {/* Code */}
+        <TextInput
+          label="Code de la cellule"
+          placeholder="Ex : CEL-A-01"
+          description="Code unique permettant d'identifier la cellule"
+          value={code}
+          onChange={(event) => setCode(event.currentTarget.value)}
           disabled={loading}
         />
 
@@ -211,27 +288,21 @@ export default function ManageCell({
           label="Nom de la cellule"
           placeholder="Ex : Cellule A-01"
           required
-          value={name}
-          onChange={(event) => setName(event.currentTarget.value)}
+          value={celluleName}
+          onChange={(event) => setCelluleName(event.currentTarget.value)}
           disabled={loading}
         />
 
-        {/* Statut */}
-        <Select
-          label="Statut"
+        {/* Capacité */}
+        <NumberInput
+          label="Capacité"
+          placeholder="Ex : 20"
+          description="Nombre maximum de détenus que la cellule peut accueillir"
           required
-          value={status}
-          onChange={(value) => setStatus(value ?? "1")}
-          data={[
-            {
-              value: "1",
-              label: "Active",
-            },
-            {
-              value: "0",
-              label: "Inactive",
-            },
-          ]}
+          min={1}
+          allowDecimal={false}
+          value={capacity}
+          onChange={setCapacity}
           disabled={loading}
         />
       </Stack>

@@ -5,11 +5,12 @@ use sqlx::FromRow;
 pub struct Cellule {
     pub id: String,
     pub prison_id: String,
-    pub code: String,
+    pub code: Option<String>,
     pub cellule_name: String,
     pub capacity: i64,
-    pub created_at: Option<String>,
-    pub updated_at: Option<String>,
+    pub statut_cellule: String,
+    pub created_at: String,
+    pub updated_at: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -17,6 +18,5 @@ pub struct CelluleInput {
     pub prison_id: Option<String>,
     pub code: Option<String>,
     pub cellule_name: Option<String>,
-    pub capacity: Option<i64>, 
-
+    pub capacity: Option<i64>,
 }

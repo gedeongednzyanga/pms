@@ -23,14 +23,15 @@ import {
 } from "lucide-react";
 
 import { invoke } from "@tauri-apps/api/core";
+import { Crime } from "../../interfaces/crime";
 
-export interface Crime {
-  id: number;
-  name: string;
-  status: number;
-  date_created: string;
-  delete_flag: number;
-}
+// export interface Crime {
+//   id: number;
+//   name: string;
+//   status: number;
+//   date_created: string;
+//   delete_flag: number;
+// }
 
 interface CrimeListProps {
   onCreate: () => void;
@@ -69,7 +70,7 @@ export default function CrimeList({
     loadCrimes();
   }, []);
 
-  const deleteCrime = async (id: number) => {
+  const deleteCrime = async (id: string) => {
     const confirmed = window.confirm(
       "Voulez-vous vraiment supprimer définitivement ce crime ?"
     );
@@ -104,17 +105,17 @@ export default function CrimeList({
       </Table.Td>
 
       <Table.Td>
-        {formatDate(crime.date_created)}
+        {formatDate(crime.created_at)}
       </Table.Td>
 
       <Table.Td>
         <Text fw={500}>
-          {crime.name}
+          {crime.crime_name}
         </Text>
       </Table.Td>
 
       <Table.Td ta="center">
-        {crime.status === 1 ? (
+        {crime.statut_crime === "active" ? (
           <Badge
             color="green"
             variant="light"

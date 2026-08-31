@@ -7,7 +7,7 @@ import {
   Text,
   Title,
 } from "@mantine/core";
-import { Crime } from "./crime-list";
+import { Crime } from "../../interfaces/crime";
 
 
 interface CrimeDetailsProps {
@@ -50,7 +50,7 @@ export default function CrimeDetails({
           </Text>
 
           <Text fw={500}>
-            {crime.name}
+            {crime.crime_name}
           </Text>
         </div>
 
@@ -65,7 +65,7 @@ export default function CrimeDetails({
             Statut
           </Text>
 
-          {crime.status === 1 ? (
+          {crime.statut_crime === "active" ? (
             <Badge
               color="green"
               variant="light"
@@ -94,7 +94,7 @@ export default function CrimeDetails({
 
           <Text>
             {new Date(
-              crime.date_created
+              crime.created_at
             ).toLocaleString("fr-FR")}
           </Text>
         </div>

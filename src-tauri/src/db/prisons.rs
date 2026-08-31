@@ -217,75 +217,6 @@ pub async fn delete_prison(
     Ok(())
 }
 
-// pub async fn get_prisons(
-//     pool: &SqlitePool,
-//     page: i64,
-//     per_page: i64,
-//     search: Option<String>,
-// ) -> Result<PaginatedResponse<Prison>, String> {
-
-//     let page = page.max(1);
-//     let per_page = per_page.clamp(1, 100);
-//     let offset = (page - 1) * per_page;
-
-//     let search = search
-//         .unwrap_or_default()
-//         .trim()
-//         .to_string();
-
-//     let pattern = format!("%{}%", search);
-
-//     let total: i64 = sqlx::query_scalar(
-//         r#"
-//         SELECT COUNT(*)
-//         FROM prisons
-//         WHERE
-//             ? = ''
-//             OR prison_name LIKE ?
-//             OR statut_prison LIKE ?
-//         "#
-//     )
-//     .bind(&search)
-//     .bind(&pattern)
-//     .bind(&pattern)
-//     .fetch_one(pool)
-//     .await
-//     .map_err(|e| e.to_string())?;
-
-//     let users = sqlx::query_as::<_, Prison>(
-//         r#"
-//         SELECT
-//             id,
-//             crime_name,
-//             statut_crime,
-//             created_at,
-//             updated_at
-//         FROM users
-//         WHERE
-//             ? = ''
-//             OR crime_name LIKE ?
-//             OR statut_crime LIKE ?
-//         ORDER BY id DESC
-//         LIMIT ? OFFSET ?
-//         "#
-//     )
-//     .bind(&search)
-//     .bind(&pattern)
-//     .bind(&pattern)
-//     .bind(per_page)
-//     .bind(offset)
-//     .fetch_all(pool)
-//     .await
-//     .map_err(|e| e.to_string())?;
-
-//     Ok(PaginatedResponse::new(
-//         users,
-//         total,
-//         page,
-//         per_page,
-//     ))
-// }
-
 pub async fn get_prisons(
     pool: &SqlitePool,
     page: i64,
@@ -364,4 +295,27 @@ pub async fn get_prisons(
         page,
         per_page,
     ))
+}
+
+pub async fn get_prisonss(
+    pool: &SqlitePool
+) -> Result<Vec<Prison>, sqlx::Error> {
+    let prisons = sqlx::query_as::<_, Prison>(
+        r#"
+        SELECT
+            id,
+            prison_name,
+            address_prison,
+            statut_prison,
+            created_at,
+            updated_at
+        FROM prisons
+        WHERE statut_prison = 'active'
+        ORDER BY prison_name ASC
+        "#
+    )
+    .fetch_all(pool)
+    .await?;
+
+    Ok(prisons)
 }

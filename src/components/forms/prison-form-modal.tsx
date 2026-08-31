@@ -18,6 +18,7 @@ import {
   Textarea,
   TextInput,
 } from "@mantine/core";
+import { notifications } from "@mantine/notifications";
 
 export type Prison = {
   id: string;
@@ -145,6 +146,12 @@ export default function PrisonFormModal({
        * Fermer le modal
        */
       onClose();
+      notifications.show({
+        title: "Nouvelle prison",
+        message:
+          "Prison enregistrée avec succès.",
+        color: "green",
+      });
 
     } catch (err) {
 

@@ -238,10 +238,10 @@ function App() {
                   CRIMES
               ========================== */}
 
-              <Route
+              {/* <Route
                 path="/crimes/new"
                 element={<ManageCrime />}
-              />
+              /> */}
 
               <Route
                 path="/crimes"

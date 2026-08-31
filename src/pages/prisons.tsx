@@ -2,12 +2,14 @@ import { useState } from "react";
 import PrisonList, { Prison } from "./prisons/prisons-list";
 import PrisonFormModal from "../components/forms/prison-form-modal";
 
-
 export default function Prisons() {
   const [formOpened, setFormOpened] = useState(false);
 
   const [selectedPrison, setSelectedPrison] =
     useState<Prison | null>(null);
+
+  // Permet de déclencher le rechargement de la liste
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const handleCreate = () => {
     setSelectedPrison(null);
@@ -24,12 +26,21 @@ export default function Prisons() {
     setSelectedPrison(null);
   };
 
+  const handleSuccess = () => {
+    // Fermer le modal
+    handleClose();
+
+    // Déclencher le rechargement de PrisonList
+    setRefreshKey((prev) => prev + 1);
+  };
+
   return (
     <>
       <PrisonList
+        refreshKey={refreshKey}
         onCreate={handleCreate}
         onEdit={handleEdit}
-        onView={(prison: any) => {
+        onView={(prison) => {
           console.log("Voir :", prison);
         }}
       />
@@ -38,9 +49,7 @@ export default function Prisons() {
         opened={formOpened}
         onClose={handleClose}
         prison={selectedPrison}
-        onSuccess={() => {
-          // On rechargera la liste ici
-        }}
+        onSuccess={handleSuccess}
       />
     </>
   );
