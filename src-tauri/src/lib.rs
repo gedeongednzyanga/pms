@@ -90,10 +90,12 @@ pub fn run() {
             commands::inmate_cmd::delete_inmate_cmd,
             commands::inmate_cmd::get_inmates_cmd,
             commands::inmate_cmd::get_inmate_by_id_cmd,
-
             commands::inmate_cmd::get_prisons_for_select_cmd,
             commands::inmate_cmd::get_cellules_for_select_cmd,
             commands::inmate_cmd::get_crimes_for_select_cmd,
+
+            // DASHBOARD
+            commands::dashboard::get_dashboard_stats_cmd,
         ])
         .run(tauri::generate_context!())
         .expect("Erreur au lancement de Tauri");

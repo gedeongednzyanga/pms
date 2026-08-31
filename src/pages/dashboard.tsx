@@ -1,12 +1,15 @@
+
 import {
   IconUsers,
   IconUser,
-  IconCalendarEvent,
   IconBuilding,
+  IconHome,
   IconArrowUpRight,
   IconArrowDownRight,
   IconEye,
   IconDotsVertical,
+  IconScale,
+  IconRefresh,
 } from "@tabler/icons-react";
 
 import {
@@ -17,6 +20,9 @@ import {
   Text,
   Avatar,
   Table,
+  Skeleton,
+  ActionIcon,
+  Tooltip,
 } from "@mantine/core";
 
 import {
@@ -24,7 +30,7 @@ import {
   PieChart,
   Pie,
   Cell,
-  Tooltip,
+  Tooltip as RechartsTooltip,
   Legend,
   LineChart,
   Line,
@@ -33,199 +39,384 @@ import {
   CartesianGrid,
 } from "recharts";
 
-/* =========================
-   DATA
-========================= */
+import { useEffect, useMemo, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { toast } from "sonner";
 
-const genderData = [
-  {
-    name: "Hommes",
-    value: 1080,
-  },
-  {
-    name: "Femmes",
-    value: 168,
-  },
-];
+import { DashboardStats } from "../interfaces/dashboard";
 
-const prisonersEvolution = [
-  {
-    month: "Jan",
-    prisonniers: 980,
-  },
-  {
-    month: "Fév",
-    prisonniers: 1020,
-  },
-  {
-    month: "Mar",
-    prisonniers: 1065,
-  },
-  {
-    month: "Avr",
-    prisonniers: 1090,
-  },
-  {
-    month: "Mai",
-    prisonniers: 1135,
-  },
-  {
-    month: "Juin",
-    prisonniers: 1180,
-  },
-  {
-    month: "Juil",
-    prisonniers: 1215,
-  },
-  {
-    month: "Août",
-    prisonniers: 1248,
-  },
-];
 
-const latestPrisoners = [
-  {
-    id: 1,
-    name: "Jean Dupont",
-    matricule: "PR-2026-00125",
-    gender: "Masculin",
-    prison: "Prison Centrale",
-    cell: "B-12",
-    date: "24 Août 2026",
-  },
-  {
-    id: 2,
-    name: "Marie Kabeya",
-    matricule: "PR-2026-00124",
-    gender: "Féminin",
-    prison: "Prison Centrale",
-    cell: "F-04",
-    date: "24 Août 2026",
-  },
-  {
-    id: 3,
-    name: "Patrick Ilunga",
-    matricule: "PR-2026-00123",
-    gender: "Masculin",
-    prison: "Prison Nord",
-    cell: "A-08",
-    date: "23 Août 2026",
-  },
-  {
-    id: 4,
-    name: "David Mbuyi",
-    matricule: "PR-2026-00122",
-    gender: "Masculin",
-    prison: "Prison Centrale",
-    cell: "C-02",
-    date: "23 Août 2026",
-  },
-  {
-    id: 5,
-    name: "Sarah Mukendi",
-    matricule: "PR-2026-00121",
-    gender: "Féminin",
-    prison: "Prison Sud",
-    cell: "F-11",
-    date: "22 Août 2026",
-  },
-];
-
-const activities = [
-  {
-    title: "Nouvel enregistrement",
-    description: "Jean Dupont a été enregistré",
-    time: "Il y a 10 min",
-  },
-  {
-    title: "Visite enregistrée",
-    description: "Visite de Marie Kabeya",
-    time: "Il y a 25 min",
-  },
-  {
-    title: "Transfert effectué",
-    description: "Transfert vers Cellule B-12",
-    time: "Il y a 1h",
-  },
-  {
-    title: "Rapport généré",
-    description: "Rapport mensuel des détenus",
-    time: "Il y a 2h",
-  },
-];
-
-/* =========================
+/* =========================================================
    DASHBOARD
-========================= */
+========================================================= */
 
 export default function Dashboard() {
+
+  const [dashboard, setDashboard] =
+    useState<DashboardStats | null>(null);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [refreshing, setRefreshing] =
+    useState(false);
+
+
+  /* =========================================================
+     CHARGEMENT DASHBOARD
+  ========================================================= */
+
+  const loadDashboard = async (
+    showRefresh = false
+  ) => {
+
+    try {
+
+      if (showRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+
+      const data =
+        await invoke<DashboardStats>(
+          "get_dashboard_stats_cmd"
+        );
+
+      setDashboard(data);
+
+    } catch (error) {
+
+      console.error(
+        "Erreur dashboard :",
+        error
+      );
+
+      toast.error(
+        `Impossible de charger le dashboard : ${String(error)}`
+      );
+
+    } finally {
+
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+
+  useEffect(() => {
+    loadDashboard();
+  }, []);
+
+
+  /* =========================================================
+     DONNEES SEXE
+  ========================================================= */
+
+  const genderData = useMemo(() => [
+
+    {
+      name: "Hommes",
+      value: dashboard?.total_male ?? 0,
+    },
+
+    {
+      name: "Femmes",
+      value: dashboard?.total_female ?? 0,
+    },
+
+  ], [dashboard]);
+
+
+  /* =========================================================
+     POURCENTAGES SEXE
+  ========================================================= */
+
+  const malePercentage =
+    dashboard &&
+    dashboard.total_inmates > 0
+      ? (
+          (dashboard.total_male /
+            dashboard.total_inmates) *
+          100
+        ).toFixed(1)
+      : "0.0";
+
+
+  const femalePercentage =
+    dashboard &&
+    dashboard.total_inmates > 0
+      ? (
+          (dashboard.total_female /
+            dashboard.total_inmates) *
+          100
+        ).toFixed(1)
+      : "0.0";
+
+
+  /* =========================================================
+     TAUX OCCUPATION
+  ========================================================= */
+
+  const occupancyPercentage =
+    dashboard &&
+    dashboard.total_capacity > 0
+      ? (
+          (dashboard.total_inmates /
+            dashboard.total_capacity) *
+          100
+        ).toFixed(1)
+      : "0.0";
+
+
+  /* =========================================================
+     RENDER
+  ========================================================= */
+
   return (
+
     <div className="space-y-6">
 
-      {/* =========================
+
+      {/* =====================================================
           HEADER
-      ========================== */}
+      ===================================================== */}
 
-      <div>
-        <Text size="xl" fw={700}>
-          Dashboard
-        </Text>
+      <Group justify="space-between">
 
-        <Text size="sm" c="dimmed">
-          Vue d'ensemble de votre établissement.
-        </Text>
-      </div>
+        <div>
 
-      {/* =========================
-          STATISTICS
-      ========================== */}
+          <Text
+            size="xl"
+            fw={700}
+          >
+            Dashboard
+          </Text>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <Text
+            size="sm"
+            c="dimmed"
+          >
+            Vue d'ensemble de votre établissement.
+          </Text>
+
+        </div>
+
+
+        <Tooltip label="Actualiser">
+
+          <ActionIcon
+            variant="light"
+            size="lg"
+            loading={refreshing}
+            onClick={() =>
+              loadDashboard(true)
+            }
+          >
+            <IconRefresh
+              size={18}
+            />
+          </ActionIcon>
+
+        </Tooltip>
+
+      </Group>
+
+
+      {/* =====================================================
+          STATISTIQUES
+      ===================================================== */}
+
+      <div
+        className="
+          grid
+          gap-4
+          sm:grid-cols-2
+          xl:grid-cols-4
+        "
+      >
+
+        {/* DETENUS */}
 
         <StatCard
           title="Détenus"
-          value="1,248"
-          description="+12% ce mois"
-          icon={<IconUsers size={22} />}
+          value={
+            dashboard
+              ? dashboard.total_inmates.toLocaleString()
+              : "0"
+          }
+          description="Total enregistré"
+          icon={
+            <IconUsers
+              size={22}
+            />
+          }
           positive
+          loading={loading}
         />
 
+
+        {/* HOMMES */}
+
         <StatCard
-          title="Visiteurs"
-          value="356"
-          description="+8.2% ce mois"
-          icon={<IconUser size={22} />}
+          title="Hommes"
+          value={
+            dashboard
+              ? dashboard.total_male.toLocaleString()
+              : "0"
+          }
+          description={`${malePercentage}% des détenus`}
+          icon={
+            <IconUser
+              size={22}
+            />
+          }
           positive
+          loading={loading}
         />
 
-        <StatCard
-          title="Visites aujourd'hui"
-          value="48"
-          description="12 en attente"
-          icon={<IconCalendarEvent size={22} />}
-        />
+
+        {/* CELLULES */}
 
         <StatCard
+          title="Cellules"
+          value={
+            dashboard
+              ? dashboard.total_cells.toLocaleString()
+              : "0"
+          }
+          description={`${dashboard?.occupied_cells ?? 0} occupées`}
+          icon={
+            <IconHome
+              size={22}
+            />
+          }
+          loading={loading}
+        />
+
+
+        {/* ETABLISSEMENTS */}
+
+        {/* <StatCard
           title="Établissements"
-          value="12"
-          description="Tous opérationnels"
-          icon={<IconBuilding size={22} />}
+          value={
+            dashboard
+              ? dashboard.total_prisons.toLocaleString()
+              : "0"
+          }
+          description="Établissements actifs"
+          icon={
+            <IconBuilding
+              size={22}
+            />
+          }
           positive
+          loading={loading}
+        /> */}
+
+        <StatCard
+          title="Taux d'occupation"
+          value={`${occupancyPercentage}%`}
+          description={`${dashboard?.occupied_cells ?? 0} cellules occupées`}
+          icon={<IconBuilding size={22} />}
         />
 
       </div>
 
-      {/* =========================
-          CHARTS
-      ========================== */}
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      {/* =====================================================
+          INFORMATIONS CAPACITE
+      ===================================================== */}
 
-        {/* Gender */}
+      <div
+        className="
+          grid
+          gap-4
+          sm:grid-cols-2
+          lg:grid-cols-4
+        "
+      >
+
+        <MiniStat
+          title="Capacité totale"
+          value={
+            dashboard?.total_capacity
+              ?.toLocaleString() ?? "0"
+          }
+          icon={
+            <IconHome
+              size={18}
+            />
+          }
+        />
+
+
+        <MiniStat
+          title="Places disponibles"
+          value={
+            dashboard?.available_capacity
+              ?.toLocaleString() ?? "0"
+          }
+          icon={
+            <IconArrowDownRight
+              size={18}
+            />
+          }
+        />
+
+
+        <MiniStat
+          title="Cellules occupées"
+          value={
+            dashboard?.occupied_cells
+              ?.toLocaleString() ?? "0"
+          }
+          icon={
+            <IconUsers
+              size={18}
+            />
+          }
+        />
+
+
+        <MiniStat
+          title="Crimes actifs"
+          value={
+            dashboard?.total_crimes
+              ?.toLocaleString() ?? "0"
+          }
+          icon={
+            <IconScale
+              size={18}
+            />
+          }
+        />
+
+      </div>
+
+
+      {/* =====================================================
+          GRAPHIQUES
+      ===================================================== */}
+
+      <div
+        className="
+          grid
+          gap-6
+          lg:grid-cols-3
+        "
+      >
+
+
+        {/* ===================================================
+            REPARTITION SEXE
+        =================================================== */}
+
         <Card
           withBorder
           radius="md"
         >
+
           <Text fw={600}>
             Répartition par sexe
           </Text>
@@ -238,11 +429,14 @@ export default function Dashboard() {
             Nombre de détenus hommes et femmes
           </Text>
 
+
           <div className="h-70">
+
             <ResponsiveContainer
               width="100%"
               height="100%"
             >
+
               <PieChart>
 
                 <Pie
@@ -254,8 +448,10 @@ export default function Dashboard() {
                   paddingAngle={3}
                   dataKey="value"
                 >
+
                   {genderData.map(
                     (_, index) => (
+
                       <Cell
                         key={`cell-${index}`}
                         fill={
@@ -264,11 +460,15 @@ export default function Dashboard() {
                             : "#ec4899"
                         }
                       />
+
                     )
                   )}
+
                 </Pie>
 
-                <Tooltip />
+
+                <RechartsTooltip />
+
 
                 <Legend
                   verticalAlign="bottom"
@@ -276,37 +476,62 @@ export default function Dashboard() {
                 />
 
               </PieChart>
+
             </ResponsiveContainer>
+
           </div>
 
-          <div className="mt-2 grid grid-cols-2 gap-3">
+
+          <div
+            className="
+              mt-2
+              grid
+              grid-cols-2
+              gap-3
+            "
+          >
 
             <GenderStat
               label="Hommes"
-              value="1,080"
-              percentage="86.5%"
+              value={
+                dashboard?.total_male
+                  ?.toLocaleString() ?? "0"
+              }
+              percentage={`${malePercentage}%`}
             />
+
 
             <GenderStat
               label="Femmes"
-              value="168"
-              percentage="13.5%"
+              value={
+                dashboard?.total_female
+                  ?.toLocaleString() ?? "0"
+              }
+              percentage={`${femalePercentage}%`}
             />
 
           </div>
+
         </Card>
 
-        {/* Evolution */}
+
+        {/* ===================================================
+            EVOLUTION
+        =================================================== */}
+
         <Card
           withBorder
           radius="md"
           className="lg:col-span-2"
         >
+
           <Group
             justify="space-between"
             mb="md"
           >
+
             <div>
+
               <Text fw={600}>
                 Évolution des détenus
               </Text>
@@ -318,73 +543,103 @@ export default function Dashboard() {
                 Évolution du nombre de détenus
                 durant les derniers mois
               </Text>
+
             </div>
 
+
             <Badge variant="light">
-              2026
+
+              {new Date()
+                .getFullYear()}
+
             </Badge>
+
           </Group>
+
 
           <div className="h-82.5">
 
-            <ResponsiveContainer
-              width="100%"
-              height="100%"
-            >
-              <LineChart
-                data={prisonersEvolution}
+            {loading ? (
+
+              <Skeleton
+                height="100%"
+                radius="md"
+              />
+
+            ) : (
+
+              <ResponsiveContainer
+                width="100%"
+                height="100%"
               >
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  vertical={false}
-                />
 
-                <XAxis
-                  dataKey="month"
-                  tickLine={false}
-                  axisLine={false}
-                />
+                <LineChart
+                  data={
+                    dashboard?.prisoners_evolution ?? []
+                  }
+                >
 
-                <YAxis
-                  tickLine={false}
-                  axisLine={false}
-                />
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    vertical={false}
+                  />
 
-                <Tooltip />
+                  <XAxis
+                    dataKey="month"
+                    tickLine={false}
+                    axisLine={false}
+                  />
 
-                <Line
-                  type="monotone"
-                  dataKey="prisonniers"
-                  stroke="#2563eb"
-                  strokeWidth={3}
-                  dot={{
-                    r: 4,
-                  }}
-                  activeDot={{
-                    r: 6,
-                  }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+                  <YAxis
+                    tickLine={false}
+                    axisLine={false}
+                  />
+
+                  <RechartsTooltip />
+
+
+                  <Line
+                    type="monotone"
+                    dataKey="prisonniers"
+                    stroke="#2563eb"
+                    strokeWidth={3}
+                    dot={{
+                      r: 4,
+                    }}
+                    activeDot={{
+                      r: 6,
+                    }}
+                  />
+
+                </LineChart>
+
+              </ResponsiveContainer>
+
+            )}
 
           </div>
+
         </Card>
 
       </div>
 
-      {/* =========================
-          LATEST PRISONERS
-      ========================== */}
+
+      {/* =====================================================
+          DERNIERS DETENUS
+      ===================================================== */}
 
       <Card
         withBorder
         radius="md"
       >
+
         <Group
           justify="space-between"
           mb="md"
         >
+
           <div>
+
             <Text fw={600}>
               Derniers détenus enregistrés
             </Text>
@@ -396,12 +651,16 @@ export default function Dashboard() {
               Les derniers détenus ajoutés
               au système
             </Text>
+
           </div>
+
 
           <ButtonLink>
             Voir tous
           </ButtonLink>
+
         </Group>
+
 
         <div className="overflow-x-auto">
 
@@ -410,7 +669,9 @@ export default function Dashboard() {
             highlightOnHover
             withColumnBorders={false}
           >
+
             <Table.Thead>
+
               <Table.Tr>
 
                 <Table.Th>
@@ -440,152 +701,285 @@ export default function Dashboard() {
                 <Table.Th />
 
               </Table.Tr>
+
             </Table.Thead>
+
 
             <Table.Tbody>
 
-              {latestPrisoners.map(
-                (prisoner) => (
-                  <Table.Tr key={prisoner.id}>
+              {loading ? (
+
+                Array.from({
+                  length: 5,
+                }).map((_, index) => (
+
+                  <Table.Tr key={index}>
 
                     <Table.Td>
+                      <Skeleton height={35} />
+                    </Table.Td>
 
-                      <div className="flex items-center gap-3">
+                    <Table.Td>
+                      <Skeleton height={20} />
+                    </Table.Td>
 
-                        <Avatar
-                          radius="xl"
-                          size={34}
+                    <Table.Td>
+                      <Skeleton height={20} />
+                    </Table.Td>
+
+                    <Table.Td>
+                      <Skeleton height={20} />
+                    </Table.Td>
+
+                    <Table.Td>
+                      <Skeleton height={20} />
+                    </Table.Td>
+
+                    <Table.Td>
+                      <Skeleton height={20} />
+                    </Table.Td>
+
+                    <Table.Td />
+
+                  </Table.Tr>
+
+                ))
+
+              ) : dashboard?.latest_prisoners?.length ? (
+
+                dashboard.latest_prisoners.map(
+                  (prisoner) => (
+
+                    <Table.Tr
+                      key={prisoner.id}
+                    >
+
+                      <Table.Td>
+
+                        <div
+                          className="
+                            flex
+                            items-center
+                            gap-3
+                          "
                         >
-                          {prisoner.name
-                            .split(" ")
-                            .map(
-                              (name) =>
-                                name[0]
-                            )
-                            .join("")
-                            .slice(0, 2)}
-                        </Avatar>
 
-                        <div>
-                          <Text
-                            size="sm"
-                            fw={500}
+                          <Avatar
+                            radius="xl"
+                            size={34}
                           >
-                            {prisoner.name}
-                          </Text>
 
-                          <Text
-                            size="xs"
-                            c="dimmed"
-                          >
-                            Détenu
-                          </Text>
+                            {prisoner.name
+                              .split(" ")
+                              .filter(Boolean)
+                              .map(
+                                (name) =>
+                                  name[0]
+                              )
+                              .join("")
+                              .slice(0, 2)
+                              .toUpperCase()}
+
+                          </Avatar>
+
+
+                          <div>
+
+                            <Text
+                              size="sm"
+                              fw={500}
+                            >
+                              {prisoner.name}
+                            </Text>
+
+                            <Text
+                              size="xs"
+                              c="dimmed"
+                            >
+                              Détenu
+                            </Text>
+
+                          </div>
+
                         </div>
 
-                      </div>
+                      </Table.Td>
 
-                    </Table.Td>
 
-                    <Table.Td>
-                      <Text size="sm">
-                        {prisoner.matricule}
-                      </Text>
-                    </Table.Td>
+                      <Table.Td>
 
-                    <Table.Td>
-                      <Badge
-                        variant="light"
-                        color={
-                          prisoner.gender ===
-                          "Masculin"
-                            ? "blue"
-                            : "pink"
-                        }
-                      >
-                        {prisoner.gender}
-                      </Badge>
-                    </Table.Td>
+                        <Text size="sm">
+                          {prisoner.matricule}
+                        </Text>
 
-                    <Table.Td>
-                      <Text size="sm">
-                        {prisoner.prison}
-                      </Text>
-                    </Table.Td>
+                      </Table.Td>
 
-                    <Table.Td>
-                      <Badge
-                        variant="light"
-                        color="gray"
-                      >
-                        {prisoner.cell}
-                      </Badge>
-                    </Table.Td>
 
-                    <Table.Td>
+                      <Table.Td>
+
+                        <Badge
+                          variant="light"
+                          color={
+                            prisoner.gender ===
+                            "Masculin"
+                              ? "blue"
+                              : "pink"
+                          }
+                        >
+                          {prisoner.gender}
+                        </Badge>
+
+                      </Table.Td>
+
+
+                      <Table.Td>
+
+                        <Text size="sm">
+                          {prisoner.prison}
+                        </Text>
+
+                      </Table.Td>
+
+
+                      <Table.Td>
+
+                        <Badge
+                          variant="light"
+                          color="gray"
+                        >
+                          {prisoner.cell}
+                        </Badge>
+
+                      </Table.Td>
+
+
+                      <Table.Td>
+
+                        <Text
+                          size="sm"
+                          c="dimmed"
+                        >
+                          {prisoner.date}
+                        </Text>
+
+                      </Table.Td>
+
+
+                      <Table.Td>
+
+                        <Menu
+                          position="bottom-end"
+                          shadow="md"
+                        >
+
+                          <Menu.Target>
+
+                            <ActionIcon
+                              variant="subtle"
+                              color="gray"
+                            >
+
+                              <IconDotsVertical
+                                size={18}
+                              />
+
+                            </ActionIcon>
+
+                          </Menu.Target>
+
+
+                          <Menu.Dropdown>
+
+                            <Menu.Item
+                              leftSection={
+                                <IconEye
+                                  size={16}
+                                />
+                              }
+                            >
+                              Voir le dossier
+                            </Menu.Item>
+
+                          </Menu.Dropdown>
+
+                        </Menu>
+
+                      </Table.Td>
+
+                    </Table.Tr>
+
+                  )
+                )
+
+              ) : (
+
+                <Table.Tr>
+
+                  <Table.Td
+                    colSpan={7}
+                  >
+
+                    <div
+                      className="
+                        py-8
+                        text-center
+                      "
+                    >
+
                       <Text
                         size="sm"
                         c="dimmed"
                       >
-                        {prisoner.date}
+                        Aucun détenu enregistré.
                       </Text>
-                    </Table.Td>
 
-                    <Table.Td>
-                      <Menu
-                        position="bottom-end"
-                        shadow="md"
-                      >
-                        <Menu.Target>
-                          <IconDotsVertical
-                            size={18}
-                            className="cursor-pointer text-gray-500"
-                          />
-                        </Menu.Target>
+                    </div>
 
-                        <Menu.Dropdown>
+                  </Table.Td>
 
-                          <Menu.Item
-                            leftSection={
-                              <IconEye
-                                size={16}
-                              />
-                            }
-                          >
-                            Voir le dossier
-                          </Menu.Item>
+                </Table.Tr>
 
-                        </Menu.Dropdown>
-                      </Menu>
-                    </Table.Td>
-
-                  </Table.Tr>
-                )
               )}
 
             </Table.Tbody>
+
           </Table>
 
         </div>
+
       </Card>
 
-      {/* =========================
+
+      {/* =====================================================
           BOTTOM
-      ========================== */}
+      ===================================================== */}
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div
+        className="
+          grid
+          gap-6
+          lg:grid-cols-3
+        "
+      >
 
-        {/* Activities */}
+
+        {/* ===================================================
+            ACTIVITES
+        =================================================== */}
 
         <Card
           withBorder
           radius="md"
           className="lg:col-span-2"
         >
+
           <Group
             justify="space-between"
             mb="md"
           >
+
             <div>
+
               <Text fw={600}>
                 Activités récentes
               </Text>
@@ -596,33 +990,105 @@ export default function Dashboard() {
               >
                 Dernières opérations
               </Text>
+
             </div>
+
 
             <Badge variant="light">
               Aujourd'hui
             </Badge>
+
           </Group>
+
 
           <div className="space-y-1">
 
-            {activities.map(
-              (activity, index) => (
-                <Activity
+            {loading ? (
+
+              Array.from({
+                length: 4,
+              }).map((_, index) => (
+
+                <div
                   key={index}
-                  {...activity}
-                />
+                  className="
+                    flex
+                    items-center
+                    gap-3
+                    p-3
+                  "
+                >
+
+                  <Skeleton
+                    circle
+                    height={8}
+                    width={8}
+                  />
+
+                  <div className="flex-1">
+
+                    <Skeleton
+                      height={15}
+                      width="40%"
+                      mb={5}
+                    />
+
+                    <Skeleton
+                      height={12}
+                      width="60%"
+                    />
+
+                  </div>
+
+                  <Skeleton
+                    height={12}
+                    width={60}
+                  />
+
+                </div>
+
+              ))
+
+            ) : dashboard?.activities?.length ? (
+
+              dashboard.activities.map(
+                (activity, index) => (
+
+                  <Activity
+                    key={`${activity.title}-${index}`}
+                    {...activity}
+                  />
+
+                )
               )
+
+            ) : (
+
+              <Text
+                size="sm"
+                c="dimmed"
+                ta="center"
+                py="xl"
+              >
+                Aucune activité récente.
+              </Text>
+
             )}
 
           </div>
+
         </Card>
 
-        {/* Quick actions */}
+
+        {/* ===================================================
+            ACTIONS RAPIDES
+        =================================================== */}
 
         <Card
           withBorder
           radius="md"
         >
+
           <Text fw={600}>
             Actions rapides
           </Text>
@@ -636,34 +1102,40 @@ export default function Dashboard() {
             principales.
           </Text>
 
+
           <div className="grid gap-2">
 
             <QuickAction
               label="Ajouter un détenu"
               icon={
-                <IconUser size={18} />
-              }
-            />
-
-            <QuickAction
-              label="Enregistrer une visite"
-              icon={
-                <IconCalendarEvent
+                <IconUser
                   size={18}
                 />
               }
             />
 
+
             <QuickAction
-              label="Voir les rapports"
+              label="Gérer les établissements"
               icon={
-                <IconArrowUpRight
+                <IconBuilding
+                  size={18}
+                />
+              }
+            />
+
+
+            <QuickAction
+              label="Voir les crimes"
+              icon={
+                <IconScale
                   size={18}
                 />
               }
             />
 
           </div>
+
         </Card>
 
       </div>
@@ -673,9 +1145,9 @@ export default function Dashboard() {
 }
 
 
-/* =========================
+/* =========================================================
    STAT CARD
-========================= */
+========================================================= */
 
 interface StatCardProps {
   title: string;
@@ -683,7 +1155,9 @@ interface StatCardProps {
   description: string;
   icon: React.ReactNode;
   positive?: boolean;
+  loading?: boolean;
 }
+
 
 function StatCard({
   title,
@@ -691,8 +1165,11 @@ function StatCard({
   description,
   icon,
   positive,
+  loading,
 }: StatCardProps) {
+
   return (
+
     <Card
       withBorder
       radius="md"
@@ -702,9 +1179,11 @@ function StatCard({
         hover:shadow-md
       "
     >
+
       <Group justify="space-between">
 
         <div>
+
           <Text
             size="sm"
             c="dimmed"
@@ -712,19 +1191,37 @@ function StatCard({
             {title}
           </Text>
 
-          <Text
-            size="xl"
-            fw={700}
-            mt={4}
-          >
-            {value}
-          </Text>
+
+          {loading ? (
+
+            <Skeleton
+              height={30}
+              width={80}
+              mt={4}
+            />
+
+          ) : (
+
+            <Text
+              size="xl"
+              fw={700}
+              mt={4}
+            >
+              {value}
+            </Text>
+
+          )}
+
         </div>
+
 
         <div
           className="
-            flex h-11 w-11
-            items-center justify-center
+            flex
+            h-11
+            w-11
+            items-center
+            justify-center
             rounded-xl
             bg-blue-50
             text-blue-600
@@ -735,19 +1232,32 @@ function StatCard({
 
       </Group>
 
-      <div className="mt-4 flex items-center gap-1">
+
+      <div
+        className="
+          mt-4
+          flex
+          items-center
+          gap-1
+        "
+      >
 
         {positive ? (
+
           <IconArrowUpRight
             size={15}
             className="text-green-600"
           />
+
         ) : (
+
           <IconArrowDownRight
             size={15}
             className="text-orange-500"
           />
+
         )}
+
 
         <Text
           size="xs"
@@ -757,14 +1267,81 @@ function StatCard({
         </Text>
 
       </div>
+
     </Card>
   );
 }
 
 
-/* =========================
+/* =========================================================
+   MINI STAT
+========================================================= */
+
+function MiniStat({
+  title,
+  value,
+  icon,
+}: {
+  title: string;
+  value: string;
+  icon: React.ReactNode;
+}) {
+
+  return (
+
+    <Card
+      withBorder
+      radius="md"
+      padding="sm"
+    >
+
+      <Group gap="sm">
+
+        <div
+          className="
+            flex
+            h-9
+            w-9
+            shrink-0
+            items-center
+            justify-center
+            rounded-lg
+            bg-gray-50
+            text-gray-600
+          "
+        >
+          {icon}
+        </div>
+
+
+        <div>
+
+          <Text
+            size="xs"
+            c="dimmed"
+          >
+            {title}
+          </Text>
+
+          <Text
+            fw={700}
+            size="sm"
+          >
+            {value}
+          </Text>
+
+        </div>
+
+      </Group>
+
+    </Card>
+  );
+}
+
+
+/* =========================================================
    GENDER STAT
-========================= */
+========================================================= */
 
 function GenderStat({
   label,
@@ -775,17 +1352,38 @@ function GenderStat({
   value: string;
   percentage: string;
 }) {
+
   return (
-    <div className="rounded-lg bg-gray-50 p-3">
-      <Text size="xs" c="dimmed">
+
+    <div
+      className="
+        rounded-lg
+        bg-gray-50
+        p-3
+      "
+    >
+
+      <Text
+        size="xs"
+        c="dimmed"
+      >
         {label}
       </Text>
 
-      <div className="mt-1 flex items-center justify-between">
+
+      <div
+        className="
+          mt-1
+          flex
+          items-center
+          justify-between
+        "
+      >
 
         <Text fw={700}>
           {value}
         </Text>
+
 
         <Text
           size="xs"
@@ -795,14 +1393,15 @@ function GenderStat({
         </Text>
 
       </div>
+
     </div>
   );
 }
 
 
-/* =========================
+/* =========================================================
    ACTIVITY
-========================= */
+========================================================= */
 
 interface ActivityProps {
   title: string;
@@ -810,23 +1409,44 @@ interface ActivityProps {
   time: string;
 }
 
+
 function Activity({
   title,
   description,
   time,
 }: ActivityProps) {
+
   return (
+
     <div
       className="
-        flex items-center gap-3
-        rounded-lg p-3
+        flex
+        items-center
+        gap-3
+        rounded-lg
+        p-3
         transition
         hover:bg-gray-50
       "
     >
-      <div className="h-2 w-2 shrink-0 rounded-full bg-blue-600" />
 
-      <div className="min-w-0 flex-1">
+      <div
+        className="
+          h-2
+          w-2
+          shrink-0
+          rounded-full
+          bg-blue-600
+        "
+      />
+
+
+      <div
+        className="
+          min-w-0
+          flex-1
+        "
+      >
 
         <Text
           size="sm"
@@ -834,6 +1454,7 @@ function Activity({
         >
           {title}
         </Text>
+
 
         <Text
           size="xs"
@@ -844,6 +1465,7 @@ function Activity({
         </Text>
 
       </div>
+
 
       <Text
         size="xs"
@@ -858,36 +1480,49 @@ function Activity({
 }
 
 
-/* =========================
+/* =========================================================
    QUICK ACTION
-========================= */
+========================================================= */
 
 interface QuickActionProps {
   label: string;
   icon: React.ReactNode;
 }
 
+
 function QuickAction({
   label,
   icon,
 }: QuickActionProps) {
+
   return (
+
     <button
       type="button"
       className="
-        flex w-full items-center gap-3
-        rounded-lg border
-        px-3 py-3
-        text-left text-sm
+        flex
+        w-full
+        items-center
+        gap-3
+        rounded-lg
+        border
+        px-3
+        py-3
+        text-left
+        text-sm
         transition
         hover:bg-gray-50
         hover:border-blue-200
       "
     >
+
       <div
         className="
-          flex h-8 w-8
-          items-center justify-center
+          flex
+          h-8
+          w-8
+          items-center
+          justify-center
           rounded-md
           bg-blue-50
           text-blue-600
@@ -895,6 +1530,7 @@ function QuickAction({
       >
         {icon}
       </div>
+
 
       <span>
         {label}
@@ -905,16 +1541,18 @@ function QuickAction({
 }
 
 
-/* =========================
+/* =========================================================
    BUTTON LINK
-========================= */
+========================================================= */
 
 function ButtonLink({
   children,
 }: {
   children: React.ReactNode;
 }) {
+
   return (
+
     <button
       type="button"
       className="
@@ -926,5 +1564,6 @@ function ButtonLink({
     >
       {children}
     </button>
+
   );
 }
