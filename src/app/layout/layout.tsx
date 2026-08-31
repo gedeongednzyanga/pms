@@ -3,6 +3,7 @@ import { Outlet } from "react-router";
 
 import { AppSidebar } from "../../components/menu/app-side-bar";
 import TopMenu from "../../components/menu/top-menu";
+import { Toaster } from "sonner";
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -25,7 +26,7 @@ export default function Layout() {
         <main className="min-h-0 flex-1 overflow-auto p-5">
           <Outlet />
         </main>
-
+          <Toaster position="bottom-right" richColors closeButton expand />
       </div>
     </div>
   );

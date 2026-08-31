@@ -3,8 +3,7 @@ use tauri::State;
 use crate::db::{cellules};
 use crate::models::pagination::PaginatedResponse;
 use crate::models::cellule::{
-    Cellule,
-    CelluleInput,
+    Cellule, CelluleInput, CelluleWithPrison,
 };
 use crate::state::AppState;
 
@@ -39,7 +38,7 @@ pub async fn get_cellules_cmd(
     page: Option<i64>,
     per_page: Option<i64>,
     search: Option<String>,
-) -> Result<PaginatedResponse<Cellule>, String> {
+) -> Result<PaginatedResponse<CelluleWithPrison>, String> {
 
     cellules::get_cellules(
         &state.db,

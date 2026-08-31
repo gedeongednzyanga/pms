@@ -1,322 +1,147 @@
-use std::path::{Path, PathBuf};
-
+use tauri::State;
 use sqlx::SqlitePool;
-use tauri::AppHandle;
-use tauri::Manager;
-use uuid::Uuid;
 
-use crate::models::inmate::SaveInmateRequest;
+use crate::{db::inmates::{create_inmate, delete_inmate, get_inmate_by_id, get_inmates, update_inmate}, models::{inmate::{
+    CelluleSelect, CrimeSelect, InmateDetails, InmateInput, InmateListItem, PrisonSelect,
+}, pagination::PaginatedResponse}, state::AppState};
 
 #[tauri::command]
-pub async fn save_inmate_cmd(
-    app: AppHandle,
-    pool: tauri::State<'_, SqlitePool>,
-    inmate: SaveInmateRequest,
+pub async fn create_inmate_cmd(
+    state: State<'_, AppState>,
+    inmate: InmateInput,
 ) -> Result<String, String> {
 
-    // ---------------------------------------------------------
-    // VALIDATION
-    // ---------------------------------------------------------
-
-    if inmate.code.trim().is_empty() {
-        return Err("Le code du détenu est obligatoire".into());
-    }
-
-    if inmate.firstname.trim().is_empty() {
-        return Err("Le prénom est obligatoire".into());
-    }
-
-    if inmate.lastname.trim().is_empty() {
-        return Err("Le nom est obligatoire".into());
-    }
-
-    if inmate.cell_id.trim().is_empty() {
-        return Err("La cellule est obligatoire".into());
-    }
-
-    if inmate.dob.trim().is_empty() {
-        return Err("La date de naissance est obligatoire".into());
-    }
-
-    // ---------------------------------------------------------
-    // VERIFIER LA CELLULE
-    // ---------------------------------------------------------
-
-    let cell_exists: Option<(String,)> = sqlx::query_as(
-        r#"
-        SELECT id
-        FROM cells
-        WHERE id = ?
-        "#,
-    )
-    .bind(&inmate.cell_id)
-    .fetch_optional(pool.inner())
-    .await
-    .map_err(|e| format!("Erreur vérification cellule : {}", e))?;
-
-    if cell_exists.is_none() {
-        return Err("La cellule sélectionnée n'existe pas".into());
-    }
-
-    // ---------------------------------------------------------
-    // ID DU DETENU
-    // ---------------------------------------------------------
-
-    let inmate_id = Uuid::new_v4().to_string();
-
-    // ---------------------------------------------------------
-    // PHOTO
-    // ---------------------------------------------------------
-
-    let photo_path = if let Some(source_path) = &inmate.image_path {
-        Some(
-            save_inmate_photo(
-                &app,
-                source_path,
-                &inmate_id,
-            )
-            .await?
-        )
-    } else {
-        None
-    };
-
-    // ---------------------------------------------------------
-    // TRANSACTION
-    // ---------------------------------------------------------
-
-    let mut tx = pool
-        .begin()
-        .await
-        .map_err(|e| format!("Erreur démarrage transaction : {}", e))?;
-
-    // ---------------------------------------------------------
-    // INSERT DETENU
-    // ---------------------------------------------------------
-
-    sqlx::query(
-        r#"
-        INSERT INTO inmates (
-            id,
-            code,
-            cell_id,
-
-            firstname,
-            middlename,
-            lastname,
-
-            dob,
-            sex,
-            address,
-            marital_status,
-
-            complexion,
-            eye_color,
-
-            sentence,
-            date_from,
-            date_to,
-
-            emergency_name,
-            emergency_relation,
-            emergency_contact,
-
-            photo_path
-        )
-        VALUES (
-            ?, ?, ?,
-            ?, ?, ?,
-            ?, ?, ?, ?,
-            ?, ?,
-            ?, ?, ?,
-            ?, ?, ?,
-            ?
-        )
-        "#,
-    )
-    .bind(&inmate_id)
-    .bind(&inmate.code)
-    .bind(&inmate.cell_id)
-
-    .bind(&inmate.firstname)
-    .bind(&inmate.middlename)
-    .bind(&inmate.lastname)
-
-    .bind(&inmate.dob)
-    .bind(&inmate.sex)
-    .bind(&inmate.address)
-    .bind(&inmate.marital_status)
-
-    .bind(&inmate.complexion)
-    .bind(&inmate.eye_color)
-
-    .bind(&inmate.sentence)
-    .bind(&inmate.date_from)
-    .bind(&inmate.date_to)
-
-    .bind(&inmate.emergency_name)
-    .bind(&inmate.emergency_relation)
-    .bind(&inmate.emergency_contact)
-
-    .bind(&photo_path)
-
-    .execute(&mut *tx)
-    .await
-    .map_err(|e| format!("Erreur création détenu : {}", e))?;
-
-    // ---------------------------------------------------------
-    // INSERT DES CRIMES
-    // ---------------------------------------------------------
-
-    for crime_id in &inmate.crime_ids {
-
-        // Vérifier que le crime existe
-        let crime_exists: Option<(String,)> = sqlx::query_as(
-            r#"
-            SELECT id
-            FROM crimes
-            WHERE id = ?
-            "#,
-        )
-        .bind(crime_id)
-        .fetch_optional(&mut *tx)
-        .await
-        .map_err(|e| format!("Erreur vérification crime : {}", e))?;
-
-        if crime_exists.is_none() {
-            return Err(format!(
-                "Le crime '{}' n'existe pas",
-                crime_id
-            ));
-        }
-
-        sqlx::query(
-            r#"
-            INSERT INTO inmate_crimes (
-                inmate_id,
-                crime_id
-            )
-            VALUES (?, ?)
-            "#,
-        )
-        .bind(&inmate_id)
-        .bind(crime_id)
-        .execute(&mut *tx)
-        .await
-        .map_err(|e| format!("Erreur association crime : {}", e))?;
-    }
-
-    // ---------------------------------------------------------
-    // COMMIT
-    // ---------------------------------------------------------
-
-    tx.commit()
-        .await
-        .map_err(|e| format!("Erreur validation transaction : {}", e))?;
-
-    Ok(inmate_id)
+    create_inmate(&state.db, inmate).await
 }
 
-async fn save_inmate_photo(
-    app: &AppHandle,
-    source_path: &str,
-    inmate_id: &str,
-) -> Result<String, String> {
+#[tauri::command]
+pub async fn get_inmate_cmd(
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<InmateDetails, String> {
 
-    let source = Path::new(source_path);
+    get_inmate_by_id(&state.db, &id).await
+}
 
-    if !source.exists() {
-        return Err(format!(
-            "La photo n'existe pas : {}",
-            source_path
-        ));
-    }
+#[tauri::command]
+pub async fn update_inmate_cmd(
+    state: State<'_, AppState>,
+    id: String,
+    input: InmateInput,
+) -> Result<(), String> {
 
-    // ---------------------------------------------------------
-    // APP DATA
-    // ---------------------------------------------------------
+    update_inmate(&state.db, &id, input).await
+}
 
-    let app_data = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| {
-            format!(
-                "Impossible de récupérer AppData : {}",
-                e
-            )
-        })?;
+#[tauri::command]
+pub async fn delete_inmate_cmd(
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<(), String> {
 
-    // ---------------------------------------------------------
-    // DOSSIER PHOTOS
-    // ---------------------------------------------------------
+    delete_inmate(&state.db, &id).await
+}
 
-    let photos_dir = app_data
-        .join("photos")
-        .join("inmates");
+#[tauri::command]
+pub async fn get_inmates_cmd(
+    state: State<'_, AppState>,
+    page: i64,
+    per_page: i64,
+    search: Option<String>,
+) -> Result<PaginatedResponse<InmateListItem>, String> {
 
-    tokio::fs::create_dir_all(&photos_dir)
-        .await
-        .map_err(|e| {
-            format!(
-                "Impossible de créer le dossier photos : {}",
-                e
-            )
-        })?;
+    get_inmates(
+        &state.db,
+        page,
+        per_page,
+        search,
+    ).await
+}
 
-    // ---------------------------------------------------------
-    // EXTENSION
-    // ---------------------------------------------------------
+#[tauri::command]
+pub async fn get_inmate_by_id_cmd(
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<InmateDetails, String> {
+    get_inmate_by_id(&state.db, &id).await
+}
 
-    let extension = source
-        .extension()
-        .and_then(|ext| ext.to_str())
-        .unwrap_or("jpg");
+#[tauri::command]
+pub async fn get_prisons_for_select_cmd(
+   state: State<'_, AppState>,
+) -> Result<Vec<PrisonSelect>, String> {
+    let pool: &SqlitePool = &state.db;
 
-    let extension = extension.to_lowercase();
+    let prisons = sqlx::query_as::<_, PrisonSelect>(
+        r#"
+        SELECT
+            id,
+            prison_name
+        FROM prisons
+        ORDER BY prison_name COLLATE NOCASE ASC
+        "#
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|e| {
+        format!("Erreur lors du chargement des prisons : {}", e)
+    })?;
 
-    let allowed_extensions = [
-        "jpg",
-        "jpeg",
-        "png",
-        "webp",
-    ];
+    Ok(prisons)
+}
 
-    if !allowed_extensions.contains(&extension.as_str()) {
-        return Err(
-            "Format d'image non supporté. Utilisez JPG, JPEG, PNG ou WEBP."
-                .into()
-        );
-    }
+#[tauri::command]
+pub async fn get_cellules_for_select_cmd(
+    state: State<'_, AppState>,
+) -> Result<Vec<CelluleSelect>, String> {
+    let pool: &SqlitePool = &state.db;
 
-    // ---------------------------------------------------------
-    // NOM DU FICHIER
-    // ---------------------------------------------------------
+    let cellules = sqlx::query_as::<_, CelluleSelect>(
+        r#"
+        SELECT
+            c.id AS id,
+            c.code AS code,
+            c.cellule_name AS cellule_name,
+            c.prison_id AS prison_id,
+            p.prison_name AS prison_name
+        FROM cellules AS c
+        INNER JOIN prisons AS p
+            ON p.id = c.prison_id
+        ORDER BY
+            p.prison_name COLLATE NOCASE ASC,
+            c.code COLLATE NOCASE ASC,
+            c.cellule_name COLLATE NOCASE ASC
+        "#
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|e| {
+        format!("Erreur lors du chargement des cellules : {}", e)
+    })?;
 
-    let filename = format!(
-        "{}.{}",
-        inmate_id,
-        extension
-    );
+    Ok(cellules)
+}
 
-    let destination: PathBuf =
-        photos_dir.join(&filename);
+#[tauri::command]
+pub async fn get_crimes_for_select_cmd(
+    state: State<'_, AppState>,
+) -> Result<Vec<CrimeSelect>, String> {
+    let pool: &SqlitePool = &state.db;
 
-    // ---------------------------------------------------------
-    // COPIE
-    // ---------------------------------------------------------
+    let crimes = sqlx::query_as::<_, CrimeSelect>(
+        r#"
+        SELECT
+            id,
+            crime_name
+        FROM crimes
+        ORDER BY crime_name COLLATE NOCASE ASC
+        "#
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|e| {
+        format!("Erreur lors du chargement des crimes : {}", e)
+    })?;
 
-    tokio::fs::copy(source, &destination)
-        .await
-        .map_err(|e| {
-            format!(
-                "Erreur copie de la photo : {}",
-                e
-            )
-        })?;
-
-    // ---------------------------------------------------------
-    // CHEMIN STOCKE EN BASE
-    // ---------------------------------------------------------
-
-    Ok(destination.to_string_lossy().to_string())
+    Ok(crimes)
 }

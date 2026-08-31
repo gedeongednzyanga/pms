@@ -6,6 +6,7 @@ import {
   IconPlus,
   IconSearch,
   IconTrash,
+  IconX,
 } from "@tabler/icons-react";
 
 import {
@@ -14,6 +15,7 @@ import {
   Button,
   Card,
   Group,
+  Pagination,
   Text,
   TextInput,
   Tooltip,
@@ -23,22 +25,25 @@ import { useNavigate } from "react-router";
 
 import { invoke } from "@tauri-apps/api/core";
 import { notifications } from "@mantine/notifications";
+import { PaginatedResponse } from "../interfaces/pagination";
+import { CelluleWithPrison } from "../interfaces/cellule";
 
-interface Cell {
-  id: number;
-  name: string;
-  prison_id: number;
-  prison: string;
-  status: number;
-  date_created: string;
-}
 
 export default function Cells() {
   const navigate = useNavigate();
 
-  const [cells, setCells] = useState<Cell[]>([]);
+  const [cells, setCells] = useState<CelluleWithPrison[]>([]);
   const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(true);
+
+  const [page, setPage] = useState(1);
+
+  const perPage = 10;
+
+  const [totalPages, setTotalPages] = useState(1);
+
+  const [loading, setLoading] = useState(false);
+
+  // const [deleteId, setDeleteId] = useState<string | null>(null);
 
   /* =========================
      CHARGER LES CELLULES
@@ -48,9 +53,15 @@ export default function Cells() {
     try {
       setLoading(true);
 
-      const result = await invoke<Cell[]>("get_cells_cmd");
-
-      setCells(result);
+      const response = await invoke<PaginatedResponse<CelluleWithPrison>>("get_cellules_cmd", 
+        {
+          page,
+          perPage,
+          search: search.trim(),
+        }
+      );
+      setCells(response.data);
+      setTotalPages(response.total_pages);
     } catch (error) {
       console.error(error);
 
@@ -72,7 +83,7 @@ export default function Cells() {
      SUPPRIMER
   ========================== */
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: string) => {
     const confirmed = window.confirm(
       "Êtes-vous sûr de vouloir supprimer définitivement cette cellule ?"
     );
@@ -80,7 +91,7 @@ export default function Cells() {
     if (!confirmed) return;
 
     try {
-      await invoke("delete_cell_cmd", { id });
+      await invoke("delete_cellule_cmd", { id });
 
       notifications.show({
         title: "Cellule supprimée",
@@ -100,18 +111,35 @@ export default function Cells() {
     }
   };
 
-  /* =========================
-     FILTRAGE
-  ========================== */
+ /**
+   * ============================
+   * Recherche
+   * ============================
+   */
+  const handleSearch = (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    setSearch(event.currentTarget.value);
 
-  const filteredCells = cells.filter((cell) => {
-    const value = search.toLowerCase();
+    // Retour à la première page
+    setPage(1);
+  };
 
-    return (
-      cell.name.toLowerCase().includes(value) ||
-      cell.prison.toLowerCase().includes(value)
-    );
-  });
+  /**
+   * Effacer la recherche
+   */
+  const clearSearch = () => {
+    setSearch("");
+    setPage(1);
+  };
+  // const filteredCells = cells.filter((cell) => {
+  //   const value = search.toLowerCase();
+
+  //   return (
+  //     cell.name.toLowerCase().includes(value) ||
+  //     cell.prison.toLowerCase().includes(value)
+  //   );
+  // });
 
   /* =========================
      DATE
@@ -187,22 +215,34 @@ export default function Cells() {
             </Text>
 
             <Text size="xs" c="dimmed">
-              {filteredCells.length} cellule
-              {filteredCells.length > 1 ? "s" : ""}
+              {cells.length} cellule
+              {cells.length > 1 ? "s" : ""}
             </Text>
           </div>
 
-          <TextInput
-            value={search}
-            onChange={(event) =>
-              setSearch(event.currentTarget.value)
-            }
-            placeholder="Rechercher une cellule..."
-            leftSection={
-              <IconSearch size={17} />
-            }
-            className="w-full sm:w-72"
-          />
+         <TextInput
+              placeholder="Rechercher une infraction..."
+              leftSection={
+                <IconSearch size={17} />
+              }
+              rightSection={
+                search ? (
+                  <ActionIcon
+                    variant="subtle"
+                    color="gray"
+                    size="sm"
+                    onClick={clearSearch}
+                    aria-label="Effacer la recherche"
+                  >
+                    <IconX size={15} />
+                  </ActionIcon>
+                ) : null
+              }
+              value={search}
+              onChange={handleSearch}
+              w={{ base: "100%", sm: 300 }}
+              radius="md"
+            />
 
         </div>
 
@@ -232,6 +272,9 @@ export default function Cells() {
                 <th className="px-4 py-3 text-left font-semibold text-slate-600">
                   Cellule
                 </th>
+                <th className="px-4 py-3 text-left font-semibold text-slate-600">
+                  Capacité
+                </th>
 
                 <th className="px-4 py-3 text-center font-semibold text-slate-600">
                   Statut
@@ -257,7 +300,7 @@ export default function Cells() {
                   </td>
                 </tr>
 
-              ) : filteredCells.length === 0 ? (
+              ) : cells.length === 0 ? (
 
                 <tr>
                   <td
@@ -272,7 +315,7 @@ export default function Cells() {
 
               ) : (
 
-                filteredCells.map((cell, index) => (
+                cells.map((cell, index) => (
 
                   <tr
                     key={cell.id}
@@ -284,7 +327,7 @@ export default function Cells() {
                     </td>
 
                     <td className="px-4 py-3 text-slate-600">
-                      {formatDate(cell.date_created)}
+                      {formatDate(cell.created_at)}
                     </td>
 
                     <td className="px-4 py-3">
@@ -299,7 +342,7 @@ export default function Cells() {
                         </div>
 
                         <Text size="sm" fw={500}>
-                          {cell.prison}
+                          {cell.prison_name}
                         </Text>
 
                       </div>
@@ -308,13 +351,19 @@ export default function Cells() {
 
                     <td className="px-4 py-3">
                       <Text size="sm" fw={500}>
-                        {cell.name}
+                        {cell.cellule_name}
+                      </Text>
+                    </td>
+
+                     <td className="px-4 py-3">
+                      <Text size="sm" fw={500}>
+                        {`${cell.capacity} personne(s)`}
                       </Text>
                     </td>
 
                     <td className="px-4 py-3 text-center">
 
-                      {cell.status === 1 ? (
+                      {cell.statut_cellule === 'active' ? (
 
                         <Badge
                           color="green"
@@ -403,6 +452,23 @@ export default function Cells() {
             </tbody>
 
           </table>
+
+          {/* =========================
+              PAGINATION
+          ========================== */}
+          {totalPages > 1 && !loading && (
+            <Group
+              justify="center"
+              mt="lg"
+            >
+              <Pagination
+                value={page}
+                onChange={setPage}
+                total={totalPages}
+                withEdges
+              />
+            </Group>
+          )}
 
         </div>
 

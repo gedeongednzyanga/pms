@@ -2,9 +2,9 @@ use chrono::Local;
 use sqlx::{SqlitePool};
 use uuid::Uuid;
 
-use crate::models::{pagination::PaginatedResponse, cellule::{
-    Cellule, CelluleInput,
-}};
+use crate::models::{cellule::{
+    Cellule, CelluleInput, CelluleWithPrison,
+}, pagination::PaginatedResponse};
 
 pub async fn create_cellule(
     pool: &SqlitePool,
@@ -406,8 +406,7 @@ pub async fn get_cellules(
     page: i64,
     per_page: i64,
     search: Option<String>,
-) -> Result<PaginatedResponse<Cellule>, String> {
-
+) -> Result<PaginatedResponse<CelluleWithPrison>, String> {
     let page = page.max(1);
     let per_page = per_page.clamp(1, 100);
     let offset = (page - 1) * per_page;
@@ -419,41 +418,60 @@ pub async fn get_cellules(
 
     let pattern = format!("%{}%", search);
 
+    // ============================
+    // TOTAL
+    // ============================
     let total: i64 = sqlx::query_scalar(
         r#"
         SELECT COUNT(*)
         FROM cellules
+        INNER JOIN prisons
+            ON prisons.id = cellules.prison_id
         WHERE
             ? = ''
-            OR cellule_name LIKE ?
-            OR statut_cellule LIKE ?
-        "#
+            OR cellules.cellule_name LIKE ?
+            OR cellules.statut_cellule LIKE ?
+            OR cellules.code LIKE ?
+        "#,
     )
     .bind(&search)
+    .bind(&pattern)
     .bind(&pattern)
     .bind(&pattern)
     .fetch_one(pool)
     .await
     .map_err(|e| e.to_string())?;
 
-    let users = sqlx::query_as::<_, Cellule>(
+    // ============================
+    // DONNÉES
+    // ============================
+    let cellules = sqlx::query_as::<_, CelluleWithPrison>(
         r#"
         SELECT
-            id,
-            cellule_name,
-            statut_cellule,
-            created_at,
-            updated_at
-        FROM users
+            cellules.id,
+            cellules.prison_id,
+            cellules.code,
+            cellules.cellule_name,
+            cellules.capacity,
+            cellules.statut_cellule,
+            cellules.created_at,
+            cellules.updated_at,
+            prisons.prison_name,
+            prisons.address_prison
+        FROM cellules
+        INNER JOIN prisons
+            ON prisons.id = cellules.prison_id
         WHERE
             ? = ''
-            OR cellule_name LIKE ?
-            OR statut_cellule LIKE ?
-        ORDER BY id DESC
+            OR cellules.cellule_name LIKE ?
+            OR cellules.statut_cellule LIKE ?
+            OR cellules.code LIKE ?
+        ORDER BY cellules.id DESC
         LIMIT ? OFFSET ?
-        "#
+        "#,
     )
     .bind(&search)
+    .bind(&pattern)
     .bind(&pattern)
     .bind(&pattern)
     .bind(per_page)
@@ -463,7 +481,7 @@ pub async fn get_cellules(
     .map_err(|e| e.to_string())?;
 
     Ok(PaginatedResponse::new(
-        users,
+        cellules,
         total,
         page,
         per_page,
