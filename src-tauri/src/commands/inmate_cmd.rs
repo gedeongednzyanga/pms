@@ -7,11 +7,32 @@ use crate::{db::inmates::{create_inmate, delete_inmate, get_inmate_by_id, get_in
 
 #[tauri::command]
 pub async fn create_inmate_cmd(
+    app: tauri::AppHandle,
     state: State<'_, AppState>,
     inmate: InmateInput,
 ) -> Result<String, String> {
+    create_inmate(
+        &app,
+        &state.db,
+        inmate,
+    )
+    .await
+}
 
-    create_inmate(&state.db, inmate).await
+#[tauri::command]
+pub async fn update_inmate_cmd(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    id: String,
+    input: InmateInput,
+) -> Result<(), String> {
+    update_inmate(
+        &app,
+        &state.db,
+        &id,
+        input,
+    )
+    .await
 }
 
 #[tauri::command]
@@ -23,15 +44,6 @@ pub async fn get_inmate_cmd(
     get_inmate_by_id(&state.db, &id).await
 }
 
-#[tauri::command]
-pub async fn update_inmate_cmd(
-    state: State<'_, AppState>,
-    id: String,
-    input: InmateInput,
-) -> Result<(), String> {
-
-    update_inmate(&state.db, &id, input).await
-}
 
 #[tauri::command]
 pub async fn delete_inmate_cmd(

@@ -33,6 +33,7 @@ import { toast } from "sonner";
 
 import { Inmate } from "../interfaces/inmate";
 import { PaginatedResponse } from "../interfaces/pagination";
+import { readFile } from "@tauri-apps/plugin-fs";
 
 /* =========================================================
    TYPES
@@ -60,6 +61,7 @@ export default function Inmates() {
 
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
+  const [photoPreviews, setPhotoPreviews] = useState< Record<string, string>>({});
 
   /* =======================================================
      CHARGEMENT
@@ -117,6 +119,71 @@ export default function Inmates() {
   useEffect(() => {
     loadInmates();
   }, [loadInmates]);
+
+  useEffect(() => {
+  let objectUrls: string[] = [];
+
+  const loadPhotos = async () => {
+    const previews: Record<string, string> = {};
+
+    for (const inmate of inmates) {
+      if (!inmate.photo_path) {
+        continue;
+      }
+
+      try {
+        const bytes = await readFile(
+          inmate.photo_path
+        );
+
+        const extension = inmate.photo_path
+          .split(".")
+          .pop()
+          ?.toLowerCase();
+
+        let mimeType = "image/jpeg";
+
+        if (extension === "png") {
+          mimeType = "image/png";
+        } else if (extension === "webp") {
+          mimeType = "image/webp";
+        } else if (extension === "gif") {
+          mimeType = "image/gif";
+        }
+
+        const blob = new Blob([bytes], {
+          type: mimeType,
+        });
+
+        const objectUrl =
+          URL.createObjectURL(blob);
+
+        objectUrls.push(objectUrl);
+
+        previews[inmate.id] = objectUrl;
+      } catch (error) {
+        console.error(
+          `Impossible de charger la photo du détenu ${inmate.id}:`,
+          error
+        );
+      }
+    }
+
+    setPhotoPreviews(previews);
+  };
+
+  if (inmates.length > 0) {
+    loadPhotos();
+  } else {
+    setPhotoPreviews({});
+  }
+
+  return () => {
+    objectUrls.forEach((url) =>
+      URL.revokeObjectURL(url)
+    );
+  };
+}, [inmates]);
 
   /* =======================================================
      RESET PAGE LORS D'UNE NOUVELLE RECHERCHE
@@ -451,23 +518,38 @@ export default function Inmates() {
                   <InmateRow
                     key={inmate.id}
                     inmate={inmate}
-                    index={
-                      (page - 1) * perPage + index
-                    }
+                    photoPreview={photoPreviews[inmate.id]}
+                    index={(page - 1) * perPage + index}
                     onView={() =>
-                      navigate(
-                        `/inmates/${inmate.id}`
-                      )
+                      navigate(`/inmates/${inmate.id}`)
                     }
                     onEdit={() =>
-                      navigate(
-                        `/inmates/${inmate.id}/edit`
-                      )
+                      navigate(`/inmates/${inmate.id}/edit`)
                     }
                     onDelete={() =>
                       handleDelete(inmate.id)
                     }
                   />
+                  // <InmateRow
+                  //   key={inmate.id}
+                  //   inmate={inmate}
+                  //   index={
+                  //     (page - 1) * perPage + index
+                  //   }
+                  //   onView={() =>
+                  //     navigate(
+                  //       `/inmates/${inmate.id}`
+                  //     )
+                  //   }
+                  //   onEdit={() =>
+                  //     navigate(
+                  //       `/inmates/${inmate.id}/edit`
+                  //     )
+                  //   }
+                  //   onDelete={() =>
+                  //     handleDelete(inmate.id)
+                  //   }
+                  // />
                 ))
               ) : (
                 <Table.Tr>
@@ -554,6 +636,7 @@ export default function Inmates() {
 
 interface InmateRowProps {
   inmate: Inmate;
+  photoPreview?: string;
   index: number;
   onView: () => void;
   onEdit: () => void;
@@ -562,6 +645,7 @@ interface InmateRowProps {
 
 function InmateRow({
   inmate,
+  photoPreview,
   index,
   onView,
   onEdit,
@@ -604,11 +688,7 @@ function InmateRow({
       <Table.Td>
         <div className="flex items-center gap-3">
           <Avatar
-            src={
-              inmate.photo_path
-                ? inmate.photo_path
-                : undefined
-            }
+            src={photoPreview}
             radius="xl"
             size={38}
             color="blue"
@@ -616,7 +696,6 @@ function InmateRow({
             {inmate.firstname?.charAt(0)}
             {inmate.lastname?.charAt(0)}
           </Avatar>
-
           <div className="min-w-0">
             <Text
               size="sm"

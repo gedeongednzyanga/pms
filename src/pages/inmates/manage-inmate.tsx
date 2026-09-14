@@ -896,13 +896,10 @@ export default function ManageInmate() {
       // ======================================================
 
       if (isEditing && id) {
-        await invoke(
-          "update_inmate_cmd",
-          {
-            id,
-            inmate,
-          }
-        );
+        await invoke("update_inmate_cmd", {
+          id: id,
+          input: inmate,
+        });
 
         toast.success(
           "Détenu modifié avec succès.",
@@ -1782,13 +1779,8 @@ export default function ManageInmate() {
                       size="xs"
                       c="dimmed"
                       mt="xs"
-                      lineClamp={2}
-                      style={{
-                        wordBreak:
-                          "break-all",
-                      }}
                     >
-                      {imagePath}
+                      Photo sélectionnée
                     </Text>
                   )}
 

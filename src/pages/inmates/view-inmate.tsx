@@ -37,6 +37,7 @@ import {
 
 import { notifications } from "@mantine/notifications";
 import { InmateDetails } from "../../interfaces/inmate";
+import { readFile } from "@tauri-apps/plugin-fs";
 
 /* =========================================================
    TYPES
@@ -50,48 +51,6 @@ interface InmateCrime {
   label?: string;
 }
 
-// interface Inmate {
-//   id: string | number;
-
-//   code: string;
-
-//   firstname: string;
-//   middlename?: string | null;
-//   lastname: string;
-
-//   sex?: "Male" | "Female" | string | null;
-
-//   dob?: string | null;
-//   address?: string | null;
-
-//   marital_status?: string | null;
-//   complexion?: string | null;
-//   eye_color?: string | null;
-
-//   image_path?: string | null;
-
-//   prison?: string | null;
-//   prison_name?: string | null;
-
-//   cell_block?: string | null;
-//   cell_name?: string | null;
-//   cellule_name?: string | null;
-//   cell_code?: string | null;
-
-//   status?: number | boolean | string | null;
-//   visiting_privilege?: number | boolean | string | null;
-
-//   crimes?: string[] | InmateCrime[] | null;
-
-//   sentence?: string | null;
-
-//   date_from?: string | null;
-//   date_to?: string | null;
-
-//   emergency_name?: string | null;
-//   emergency_relation?: string | null;
-//   emergency_contact?: string | null;
-// }
 
 interface HistoryRecord {
   id: string | number;
@@ -120,15 +79,6 @@ function formatDate(date?: string | null): string {
   }).format(parsed);
 }
 
-// function getFullName(inmate: Inmate): string {
-//   return [
-//     inmate.firstname,
-//     inmate.middlename,
-//     inmate.lastname,
-//   ]
-//     .filter(Boolean)
-//     .join(" ");
-// }
 
 function isTruthy(value?: number | boolean | string | null): boolean {
   if (value === true || value === 1) return true;
@@ -140,17 +90,6 @@ function isTruthy(value?: number | boolean | string | null): boolean {
   return false;
 }
 
-// function isReleased(inmate: Inmate): boolean {
-//   if (!inmate.date_to) return false;
-
-//   const endDate = new Date(inmate.date_to);
-
-//   if (Number.isNaN(endDate.getTime())) {
-//     return false;
-//   }
-
-//   return endDate <= new Date();
-// }
 
 function getCrimeName(crime: string | InmateCrime): string {
   if (typeof crime === "string") {
@@ -254,11 +193,11 @@ function Info({
 ========================================================= */
 
 export default function ViewInmate() {
-  const navigate = useNavigate();
 
+  const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
 
-  // const [inmate, setInmate] = useState<Inmate | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
 
   const [history, setHistory] = useState<HistoryRecord[]>([]);
 
@@ -329,6 +268,65 @@ export default function ViewInmate() {
       setLoading(false);
     }
   }, [id]);
+
+  useEffect(() => {
+    let objectUrl: string | null = null;
+
+    const loadPhoto = async () => {
+      if (!details?.inmate?.photo_path) {
+        setPhotoPreview(null);
+        return;
+      }
+
+      try {
+        const bytes = await readFile(
+          details.inmate.photo_path
+        );
+
+        // Déterminer le type MIME
+        const extension = details.inmate.photo_path
+          .split(".")
+          .pop()
+          ?.toLowerCase();
+
+        let mimeType = "image/jpeg";
+
+        if (extension === "png") {
+          mimeType = "image/png";
+        } else if (extension === "webp") {
+          mimeType = "image/webp";
+        } else if (extension === "gif") {
+          mimeType = "image/gif";
+        }
+
+        const blob = new Blob(
+          [bytes],
+          { type: mimeType }
+        );
+
+        objectUrl = URL.createObjectURL(blob);
+
+        setPhotoPreview(objectUrl);
+
+      } catch (error) {
+        console.error(
+          "Impossible de charger la photo :",
+          error
+        );
+
+        setPhotoPreview(null);
+      }
+    };
+
+    loadPhoto();
+
+    return () => {
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+
+  }, [details?.inmate?.photo_path]);
 
   /* =======================================================
      INITIAL LOAD
@@ -751,12 +749,14 @@ export default function ViewInmate() {
             <div className="flex justify-center">
               <Image
                 src={
-                  details.inmate.photo_path ||
+                  photoPreview ||
                   `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                    details.inmate.lastname || "Détenu"
+                    details.inmate.lastname ||
+                    details.inmate.firstname ||
+                    "Détenu"
                   )}&size=300`
                 }
-                alt={details.inmate.firstname}
+                alt={`${details.inmate.firstname} ${details.inmate.lastname}`}
                 radius="md"
                 className="h-44 w-44 object-cover"
                 fallbackSrc={`https://ui-avatars.com/api/?name=${encodeURIComponent(

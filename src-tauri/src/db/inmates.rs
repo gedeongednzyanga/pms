@@ -1,11 +1,128 @@
+use std::path::Path;
+
 use sqlx::SqlitePool;
+use tauri::{AppHandle, Manager};
 use uuid::Uuid;
 
 use crate::models::{inmate::{
     Inmate, InmateDetails, InmateInput, InmateListItem, CrimeSimple, CelluleSimple
 }, pagination::PaginatedResponse};
 
+pub async fn save_inmate_photo(
+    app: &AppHandle,
+    source_path: &str,
+) -> Result<String, String> {
+
+    if source_path.trim().is_empty() {
+        return Ok(String::new());
+    }
+
+    let source = Path::new(source_path);
+
+    if !source.exists() {
+        return Err(format!(
+            "Le fichier image n'existe pas : {}",
+            source_path
+        ));
+    }
+
+    // =========================
+    // DOSSIER APP DATA
+    // =========================
+
+    let app_data_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?;
+
+    // =========================
+    // DOSSIER PHOTOS
+    // =========================
+
+    let photos_dir = app_data_dir.join("photos");
+
+    std::fs::create_dir_all(&photos_dir)
+        .map_err(|e| e.to_string())?;
+
+    // =========================
+    // EXTENSION
+    // =========================
+
+    let extension = source
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .unwrap_or("jpg");
+
+    // =========================
+    // NOUVEAU NOM
+    // =========================
+
+    let filename = format!(
+        "{}.{}",
+        Uuid::new_v4(),
+        extension
+    );
+
+    let destination = photos_dir.join(filename);
+
+    // =========================
+    // COPIE
+    // =========================
+
+    std::fs::copy(
+        source,
+        &destination,
+    )
+    .map_err(|e| e.to_string())?;
+
+    Ok(
+        destination
+            .to_string_lossy()
+            .to_string()
+    )
+}
+
+fn delete_inmate_photo(
+    app: &tauri::AppHandle,
+    photo_path: &str,
+) {
+
+    let app_data_dir =
+        match app.path().app_data_dir() {
+            Ok(dir) => dir,
+            Err(_) => return,
+        };
+
+
+    let photos_dir =
+        app_data_dir.join("photos");
+
+
+    let path =
+        std::path::Path::new(photo_path);
+
+
+    /*
+     * Vérifier que la photo se trouve
+     * dans le dossier photos de l'application.
+     */
+
+    if path.starts_with(&photos_dir) {
+
+        if let Err(error) =
+            std::fs::remove_file(path)
+        {
+
+            eprintln!(
+                "Impossible de supprimer la photo : {}",
+                error
+            );
+        }
+    }
+}
+
 pub async fn create_inmate(
+    app: &AppHandle,
     pool: &SqlitePool,
     input: InmateInput,
 ) -> Result<String, String> {
@@ -104,6 +221,28 @@ pub async fn create_inmate(
     let id = Uuid::new_v4().to_string();
 
     // =========================
+    // SAUVEGARDER LA PHOTO
+    // =========================
+
+    let photo_path = if let Some(image_path) = &input.image_path {
+
+        if image_path.trim().is_empty() {
+            None
+        } else {
+            Some(
+                save_inmate_photo(
+                    app,
+                    image_path,
+                )
+                .await?
+            )
+        }
+
+    } else {
+        None
+    };
+
+    // =========================
     // TRANSACTION
     // =========================
 
@@ -163,7 +302,7 @@ pub async fn create_inmate(
     .bind(&input.emergency_name)
     .bind(&input.emergency_relation)
     .bind(&input.emergency_contact)
-    .bind(&input.image_path)
+    .bind(&photo_path)
     .execute(&mut *tx)
     .await
     .map_err(|e| e.to_string())?;
@@ -288,198 +427,429 @@ pub async fn get_inmate_by_id(
 }
 
 pub async fn update_inmate(
+    app: &tauri::AppHandle,
     pool: &SqlitePool,
     id: &str,
     input: InmateInput,
 ) -> Result<(), String> {
 
-    let code = input.code.trim().to_string();
-    let firstname = input.firstname.trim().to_string();
-    let lastname = input.lastname.trim().to_string();
-    let address = input.address.trim().to_string();
-    let complexion = input.complexion.trim().to_string();
-    let eye_color = input.eye_color.trim().to_string();
-    let sentence = input.sentence.trim().to_string();
+    // =========================================================
+    // VALIDATIONS
+    // =========================================================
 
-    // =========================
-    // VALIDATION
-    // =========================
+    if id.trim().is_empty() {
+        return Err("L'identifiant du détenu est invalide.".into());
+    }
+
+    let code = input.code.trim().to_string();
+
+    let firstname =
+        input.firstname.trim().to_string();
+
+    let lastname =
+        input.lastname.trim().to_string();
+
+    let address =
+        input.address.trim().to_string();
+
+    let complexion =
+        input.complexion.trim().to_string();
+
+    let eye_color =
+        input.eye_color.trim().to_string();
+
+    let sentence =
+        input.sentence.trim().to_string();
+
 
     if code.is_empty() {
-        return Err("Le code est obligatoire.".into());
+        return Err(
+            "Le code du détenu est obligatoire.".into()
+        );
     }
 
-    if input.cellule_id.is_empty() {
-        return Err("La cellule est obligatoire.".into());
+
+    if input.cellule_id.trim().is_empty() {
+        return Err(
+            "La cellule est obligatoire.".into()
+        );
     }
+
 
     if firstname.is_empty() {
-        return Err("Le prénom est obligatoire.".into());
+        return Err(
+            "Le prénom est obligatoire.".into()
+        );
     }
+
 
     if lastname.is_empty() {
-        return Err("Le nom est obligatoire.".into());
+        return Err(
+            "Le nom est obligatoire.".into()
+        );
     }
 
-    if input.dob.is_empty() {
-        return Err("La date de naissance est obligatoire.".into());
+
+    if input.dob.trim().is_empty() {
+        return Err(
+            "La date de naissance est obligatoire.".into()
+        );
     }
+
 
     if address.is_empty() {
-        return Err("L'adresse est obligatoire.".into());
+        return Err(
+            "L'adresse est obligatoire.".into()
+        );
     }
+
 
     if complexion.is_empty() {
-        return Err("Le teint est obligatoire.".into());
+        return Err(
+            "Le teint est obligatoire.".into()
+        );
     }
+
 
     if eye_color.is_empty() {
-        return Err("La couleur des yeux est obligatoire.".into());
+        return Err(
+            "La couleur des yeux est obligatoire.".into()
+        );
     }
+
 
     if sentence.is_empty() {
-        return Err("La peine est obligatoire.".into());
+        return Err(
+            "La peine est obligatoire.".into()
+        );
     }
 
-    if input.date_from.is_empty() {
-        return Err("La date de début de peine est obligatoire.".into());
+
+    if input.date_from.trim().is_empty() {
+        return Err(
+            "La date de début de peine est obligatoire.".into()
+        );
     }
 
-    // =========================
-    // EXISTENCE DETENU
-    // =========================
 
-    let exists: Option<(String,)> = sqlx::query_as(
-        "SELECT id FROM inmates WHERE id = ?"
-    )
-    .bind(id)
-    .fetch_optional(pool)
-    .await
-    .map_err(|e| e.to_string())?;
+    // =========================================================
+    // VERIFIER SI LE DETENU EXISTE
+    // =========================================================
 
-    if exists.is_none() {
-        return Err("Détenu introuvable.".into());
-    }
-
-    // =========================
-    // CODE UNIQUE
-    // =========================
-
-    let duplicate: Option<(String,)> = sqlx::query_as(
-        r#"
-        SELECT id
-        FROM inmates
-        WHERE code = ?
-        AND id != ?
-        LIMIT 1
-        "#
-    )
-    .bind(&code)
-    .bind(id)
-    .fetch_optional(pool)
-    .await
-    .map_err(|e| e.to_string())?;
-
-    if duplicate.is_some() {
-        return Err(format!(
-            "Le code '{}' est déjà utilisé.",
-            code
-        ));
-    }
-
-    // =========================
-    // CELLULE
-    // =========================
-
-    let cellule_exists: Option<(String,)> = sqlx::query_as(
-        "SELECT id FROM cellules WHERE id = ?"
-    )
-    .bind(&input.cellule_id)
-    .fetch_optional(pool)
-    .await
-    .map_err(|e| e.to_string())?;
-
-    if cellule_exists.is_none() {
-        return Err("La cellule sélectionnée n'existe pas.".into());
-    }
-
-    // =========================
-    // TRANSACTION
-    // =========================
-
-    let mut tx = pool
-        .begin()
+    let existing_inmate:
+        Option<(String, Option<String>)> =
+        sqlx::query_as(
+            r#"
+            SELECT
+                id,
+                photo_path
+            FROM inmates
+            WHERE id = ?
+            "#
+        )
+        .bind(id)
+        .fetch_optional(pool)
         .await
         .map_err(|e| e.to_string())?;
 
-    // =========================
-    // UPDATE
-    // =========================
+
+    let Some((_, old_photo_path)) =
+        existing_inmate
+    else {
+        return Err(
+            "Le détenu sélectionné n'existe pas.".into()
+        );
+    };
+
+
+    // =========================================================
+    // VERIFIER LE CODE UNIQUE
+    // =========================================================
+
+    let code_exists:
+        Option<(String,)> =
+        sqlx::query_as(
+            r#"
+            SELECT id
+            FROM inmates
+            WHERE code = ?
+              AND id != ?
+            LIMIT 1
+            "#
+        )
+        .bind(&code)
+        .bind(id)
+        .fetch_optional(pool)
+        .await
+        .map_err(|e| e.to_string())?;
+
+
+    if code_exists.is_some() {
+
+        return Err(
+            format!(
+                "Le code du détenu '{}' est déjà utilisé.",
+                code
+            )
+        );
+    }
+
+
+    // =========================================================
+    // VERIFIER LA CELLULE
+    // =========================================================
+
+    let cellule_exists:
+        Option<(String,)> =
+        sqlx::query_as(
+            r#"
+            SELECT id
+            FROM cellules
+            WHERE id = ?
+            "#
+        )
+        .bind(&input.cellule_id)
+        .fetch_optional(pool)
+        .await
+        .map_err(|e| e.to_string())?;
+
+
+    if cellule_exists.is_none() {
+
+        return Err(
+            "La cellule sélectionnée n'existe pas.".into()
+        );
+    }
+
+
+    // =========================================================
+    // GESTION PHOTO
+    // =========================================================
+
+    /*
+     * Le frontend envoie image_path.
+     *
+     * CAS 1 :
+     * image_path = None
+     * -> conserver ancienne photo
+     *
+     * CAS 2 :
+     * image_path = Some("")
+     * -> conserver ancienne photo
+     *
+     * CAS 3 :
+     * image_path = ancien chemin
+     * -> conserver ancienne photo
+     *
+     * CAS 4 :
+     * image_path = nouveau chemin
+     * -> copier nouvelle photo
+     */
+
+
+    let mut new_photo_created:
+        Option<String> = None;
+
+
+    let photo_path =
+        match input.image_path.as_deref() {
+
+            // -------------------------------------------------
+            // AUCUNE PHOTO ENVOYEE
+            // -------------------------------------------------
+
+            None => {
+
+                old_photo_path.clone()
+            }
+
+
+            // -------------------------------------------------
+            // PHOTO VIDE
+            // -------------------------------------------------
+
+            Some(path)
+                if path.trim().is_empty() =>
+            {
+
+                old_photo_path.clone()
+            }
+
+
+            // -------------------------------------------------
+            // MEME PHOTO
+            // -------------------------------------------------
+
+            Some(path)
+                if old_photo_path
+                    .as_deref()
+                    == Some(path) =>
+            {
+
+                old_photo_path.clone()
+            }
+
+
+            // -------------------------------------------------
+            // NOUVELLE PHOTO
+            // -------------------------------------------------
+
+            Some(path) => {
+
+                let saved_path =
+                    save_inmate_photo(
+                        app,
+                        path,
+                    )
+                    .await?;
+
+
+                new_photo_created =
+                    Some(saved_path.clone());
+
+
+                Some(saved_path)
+            }
+        };
+
+
+    // =========================================================
+    // TRANSACTION
+    // =========================================================
+
+    let mut tx =
+        pool
+            .begin()
+            .await
+            .map_err(|e| e.to_string())?;
+
+
+    // =========================================================
+    // UPDATE DETENU
+    // =========================================================
+
+    let update_result =
+        sqlx::query(
+            r#"
+            UPDATE inmates
+            SET
+
+                code = ?,
+
+                cellule_id = ?,
+
+                firstname = ?,
+                middlename = ?,
+                lastname = ?,
+
+                dob = ?,
+
+                sex = ?,
+
+                address = ?,
+
+                marital_status = ?,
+
+                complexion = ?,
+                eye_color = ?,
+
+                sentence = ?,
+
+                date_from = ?,
+                date_to = ?,
+
+                emergency_name = ?,
+                emergency_relation = ?,
+                emergency_contact = ?,
+
+                photo_path = ?,
+
+                updated_at = CURRENT_TIMESTAMP
+
+            WHERE id = ?
+            "#
+        )
+        .bind(&code)
+
+        .bind(&input.cellule_id)
+
+        .bind(&firstname)
+        .bind(&input.middlename)
+        .bind(&lastname)
+
+        .bind(&input.dob)
+
+        .bind(&input.sex)
+
+        .bind(&address)
+
+        .bind(&input.marital_status)
+
+        .bind(&complexion)
+        .bind(&eye_color)
+
+        .bind(&sentence)
+
+        .bind(&input.date_from)
+        .bind(&input.date_to)
+
+        .bind(&input.emergency_name)
+        .bind(&input.emergency_relation)
+        .bind(&input.emergency_contact)
+
+        .bind(&photo_path)
+
+        .bind(id)
+
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| e.to_string())?;
+
+
+    if update_result.rows_affected() == 0 {
+
+        tx.rollback()
+            .await
+            .ok();
+
+
+        // Si une nouvelle photo a été créée,
+        // la supprimer car UPDATE a échoué.
+
+        if let Some(path) =
+            new_photo_created
+        {
+
+            let _ =
+                std::fs::remove_file(path);
+        }
+
+
+        return Err(
+            "Aucune modification n'a été effectuée.".into()
+        );
+    }
+
+
+    // =========================================================
+    // SUPPRIMER LES ANCIENS CRIMES
+    // =========================================================
 
     sqlx::query(
         r#"
-        UPDATE inmates
-        SET
-            code = ?,
-            cellule_id = ?,
-            firstname = ?,
-            middlename = ?,
-            lastname = ?,
-            dob = ?,
-            sex = ?,
-            address = ?,
-            marital_status = ?,
-            complexion = ?,
-            eye_color = ?,
-            sentence = ?,
-            date_from = ?,
-            date_to = ?,
-            emergency_name = ?,
-            emergency_relation = ?,
-            emergency_contact = ?,
-            photo_path = ?,
-            updated_at = CURRENT_TIMESTAMP
-        WHERE id = ?
+        DELETE FROM inmate_crimes
+        WHERE inmate_id = ?
         "#
     )
-    .bind(&code)
-    .bind(&input.cellule_id)
-    .bind(&firstname)
-    .bind(&input.middlename)
-    .bind(&lastname)
-    .bind(&input.dob)
-    .bind(&input.sex)
-    .bind(&address)
-    .bind(&input.marital_status)
-    .bind(&complexion)
-    .bind(&eye_color)
-    .bind(&sentence)
-    .bind(&input.date_from)
-    .bind(&input.date_to)
-    .bind(&input.emergency_name)
-    .bind(&input.emergency_relation)
-    .bind(&input.emergency_contact)
-    .bind(&input.image_path)
     .bind(id)
     .execute(&mut *tx)
     .await
     .map_err(|e| e.to_string())?;
 
-    // =========================
-    // SUPPRIMER ANCIENS CRIMES
-    // =========================
 
-    sqlx::query(
-        "DELETE FROM inmate_crimes WHERE inmate_id = ?"
-    )
-    .bind(id)
-    .execute(&mut *tx)
-    .await
-    .map_err(|e| e.to_string())?;
-
-    // =========================
-    // AJOUTER NOUVEAUX CRIMES
-    // =========================
+    // =========================================================
+    // INSERER LES NOUVEAUX CRIMES
+    // =========================================================
 
     for crime_id in &input.crime_ids {
 
@@ -499,17 +869,69 @@ pub async fn update_inmate(
         .map_err(|e| e.to_string())?;
     }
 
-    // =========================
-    // COMMIT
-    // =========================
 
-    tx.commit()
-        .await
-        .map_err(|e| e.to_string())?;
+    // =========================================================
+    // COMMIT
+    // =========================================================
+
+    if let Err(error) =
+        tx.commit().await
+    {
+
+        // -----------------------------------------------------
+        // Si le commit échoue,
+        // supprimer la nouvelle photo créée
+        // -----------------------------------------------------
+
+        if let Some(path) =
+            new_photo_created
+        {
+
+            let _ =
+                std::fs::remove_file(path);
+        }
+
+
+        return Err(
+            error.to_string()
+        );
+    }
+
+
+    // =========================================================
+    // SUPPRIMER ANCIENNE PHOTO
+    // =========================================================
+
+    /*
+     * On supprime l'ancienne photo uniquement si :
+     *
+     * - une nouvelle photo a été créée
+     * - l'ancienne photo existe
+     * - les deux chemins sont différents
+     */
+
+
+    if let (
+        Some(old_path),
+        Some(_new_path)
+    ) = (
+        old_photo_path,
+        new_photo_created
+    ) {
+
+        delete_inmate_photo(
+            app,
+            &old_path,
+        );
+    }
+
+
+    // =========================================================
+    // SUCCESS
+    // =========================================================
 
     Ok(())
 }
-
 
 pub async fn delete_inmate(
     pool: &SqlitePool,
@@ -654,3 +1076,4 @@ pub async fn get_inmates(
         total_pages,
     })
 }
+
