@@ -1,6 +1,5 @@
 CREATE TABLE IF NOT EXISTS inmates (
     id TEXT PRIMARY KEY NOT NULL,
-    code TEXT NOT NULL UNIQUE,
 
     cellule_id TEXT NOT NULL,
 
@@ -16,10 +15,9 @@ CREATE TABLE IF NOT EXISTS inmates (
 
     marital_status TEXT NOT NULL DEFAULT 'Single',
 
-    complexion TEXT NOT NULL,
-    eye_color TEXT NOT NULL,
+    arreter_par TEXT,
+    lieu_arreter TEXT,
 
-    sentence TEXT NOT NULL,
     date_from TEXT NOT NULL,
     date_to TEXT,
 
@@ -42,6 +40,3 @@ ON inmates(cellule_id);
 
 CREATE INDEX IF NOT EXISTS idx_inmates_lastname
 ON inmates(lastname);
-
-CREATE INDEX IF NOT EXISTS idx_inmates_code
-ON inmates(code);

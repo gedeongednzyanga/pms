@@ -4,7 +4,6 @@ use sqlx::FromRow;
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct Inmate {
     pub id: String,
-    pub code: String,
     pub cellule_id: String,
 
     pub firstname: String,
@@ -16,10 +15,8 @@ pub struct Inmate {
     pub address: String,
     pub marital_status: String,
 
-    pub complexion: String,
-    pub eye_color: String,
-
-    pub sentence: String,
+    pub arreter_par: Option<String>,
+    pub lieu_arreter: Option<String>,
     pub date_from: String,
     pub date_to: Option<String>,
 
@@ -35,7 +32,6 @@ pub struct Inmate {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InmateInput {
-    pub code: String,
     pub cellule_id: String,
 
     pub firstname: String,
@@ -47,12 +43,11 @@ pub struct InmateInput {
     pub address: String,
     pub marital_status: String,
 
-    pub complexion: String,
-    pub eye_color: String,
+    pub arreter_par: String,
+    pub lieu_arreter: String,
 
     pub crime_ids: Vec<String>,
 
-    pub sentence: String,
     pub date_from: String,
     pub date_to: Option<String>,
 
@@ -86,7 +81,6 @@ pub struct CelluleSimple {
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct InmateListItem {
     pub id: String,
-    pub code: String,
     pub firstname: String,
     pub middlename: Option<String>,
     pub lastname: String,
@@ -94,9 +88,9 @@ pub struct InmateListItem {
     pub dob: String,
     pub sex: String,
 
-    pub sentence: String,
     pub date_from: String,
     pub date_to: Option<String>,
+    pub release_date: Option<String>,
 
     pub cellule_id: String,
     pub cellule_code: Option<String>,

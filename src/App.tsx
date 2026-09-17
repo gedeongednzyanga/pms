@@ -127,6 +127,9 @@ import ManageCrime from "./pages/crimes/manage-crime";
 import Prisons from "./pages/prisons";
 
 import Users from "./pages/users";
+import Releases from "./pages/releases";
+import Transfers from "./pages/transfers";
+import Reports from "./pages/reports";
 
 import Login from "./pages/login";
 
@@ -196,6 +199,25 @@ function App() {
               <Route
                 path="/inmates/:id"
                 element={<ViewInmate />}
+              />
+
+              {/* =========================
+                  LIBERATIONS ET TRANSFERTS
+              ========================== */}
+
+              <Route
+                path="/releases"
+                element={<Releases />}
+              />
+
+              <Route
+                path="/transfers"
+                element={<Transfers />}
+              />
+
+              <Route
+                path="/reports"
+                element={<Reports />}
               />
 
 

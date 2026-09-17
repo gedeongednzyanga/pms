@@ -34,7 +34,9 @@ pub async fn get_dashboard_stats(
     let total_inmates: i64 = sqlx::query_scalar(
         r#"
         SELECT COUNT(*)
-        FROM inmates
+        FROM inmates i
+        LEFT JOIN releases r ON r.inmate_id = i.id
+        WHERE r.id IS NULL
         "#
     )
     .fetch_one(pool)
@@ -45,8 +47,10 @@ pub async fn get_dashboard_stats(
     let total_male: i64 = sqlx::query_scalar(
         r#"
         SELECT COUNT(*)
-        FROM inmates
-        WHERE LOWER(sex) IN ('male', 'homme', 'masculin')
+        FROM inmates i
+        LEFT JOIN releases r ON r.inmate_id = i.id
+        WHERE r.id IS NULL
+          AND LOWER(i.sex) IN ('male', 'homme', 'masculin')
         "#
     )
     .fetch_one(pool)
@@ -57,8 +61,10 @@ pub async fn get_dashboard_stats(
     let total_female: i64 = sqlx::query_scalar(
         r#"
         SELECT COUNT(*)
-        FROM inmates
-        WHERE LOWER(sex) IN ('female', 'femme', 'féminin')
+        FROM inmates i
+        LEFT JOIN releases r ON r.inmate_id = i.id
+        WHERE r.id IS NULL
+          AND LOWER(i.sex) IN ('female', 'femme', 'féminin')
         "#
     )
     .fetch_one(pool)
@@ -145,7 +151,9 @@ pub async fn get_dashboard_stats(
     let occupied_cells: i64 = sqlx::query_scalar(
         r#"
         SELECT COUNT(DISTINCT cellule_id)
-        FROM inmates
+        FROM inmates i
+        LEFT JOIN releases r ON r.inmate_id = i.id
+        WHERE r.id IS NULL
         "#
     )
     .fetch_one(pool)
@@ -244,7 +252,7 @@ pub async fn get_dashboard_stats(
                     i.lastname
                 ) AS name,
 
-                i.code AS matricule,
+                i.date_from AS admission_date,
 
                 CASE
                     WHEN LOWER(i.sex) IN (
@@ -302,6 +310,11 @@ pub async fn get_dashboard_stats(
             LEFT JOIN prisons p
                 ON CAST(p.id AS TEXT)
                  = CAST(c.prison_id AS TEXT)
+
+            LEFT JOIN releases r
+                ON r.inmate_id = i.id
+
+            WHERE r.id IS NULL
 
             ORDER BY datetime(i.created_at) DESC
 

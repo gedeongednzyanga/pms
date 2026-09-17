@@ -12,13 +12,13 @@ import {
   IconScale,
   IconHome,
   IconAlertCircle,
+  IconCheck,
 } from "@tabler/icons-react";
 
 import {
   Badge,
   Button,
   Card,
-  Divider,
   Grid,
   Group,
   Image,
@@ -30,6 +30,7 @@ import {
   Text,
   TextInput,
   Textarea,
+  ThemeIcon,
   Title,
 } from "@mantine/core";
 
@@ -67,7 +68,6 @@ interface Crime {
 interface InmateDetails {
   inmate: {
     id: string;
-    code: string;
     cellule_id: string;
 
     firstname: string;
@@ -79,10 +79,8 @@ interface InmateDetails {
     address: string;
     marital_status: string;
 
-    complexion: string;
-    eye_color: string;
-
-    sentence: string;
+    arreter_par: string | null;
+    lieu_arreter: string | null;
     date_from: string;
     date_to: string | null;
 
@@ -102,8 +100,7 @@ interface InmateDetails {
 }
 
 interface InmateForm {
-  code: string;
-  cell_id: string;
+  cellule_id: string;
 
   firstname: string;
   middlename: string;
@@ -114,12 +111,10 @@ interface InmateForm {
   address: string;
   marital_status: string;
 
-  complexion: string;
-  eye_color: string;
-
   crime_ids: string[];
 
-  sentence: string;
+  arreter_par: string;
+  lieu_arreter: string;
   date_from: string;
   date_to: string;
 
@@ -133,8 +128,7 @@ interface InmateForm {
 // ============================================================
 
 const initialForm: InmateForm = {
-  code: "",
-  cell_id: "",
+  cellule_id: "",
 
   firstname: "",
   middlename: "",
@@ -145,12 +139,10 @@ const initialForm: InmateForm = {
   address: "",
   marital_status: "Single",
 
-  complexion: "",
-  eye_color: "",
-
   crime_ids: [],
 
-  sentence: "",
+  arreter_par: "",
+  lieu_arreter: "",
   date_from: "",
   date_to: "",
 
@@ -384,8 +376,7 @@ export default function ManageInmate() {
         const inmate = result.inmate;
 
         setForm({
-          code: inmate.code ?? "",
-          cell_id: inmate.cellule_id ?? "",
+          cellule_id: inmate.cellule_id ?? "",
 
           firstname: inmate.firstname ?? "",
           middlename: inmate.middlename ?? "",
@@ -397,14 +388,12 @@ export default function ManageInmate() {
           marital_status:
             inmate.marital_status ?? "Single",
 
-          complexion: inmate.complexion ?? "",
-          eye_color: inmate.eye_color ?? "",
-
           crime_ids: Array.isArray(result.crimes)
             ? result.crimes.map((crime) => crime.id)
             : [],
 
-          sentence: inmate.sentence ?? "",
+          arreter_par: inmate.arreter_par ?? "",
+          lieu_arreter: inmate.lieu_arreter ?? "",
           date_from: inmate.date_from ?? "",
           date_to: inmate.date_to ?? "",
 
@@ -560,25 +549,16 @@ export default function ManageInmate() {
       Record<keyof InmateForm, string>
     > = {};
 
-    const code = cleanString(form.code);
     const firstname = cleanString(form.firstname);
     const lastname = cleanString(form.lastname);
     const address = cleanString(form.address);
-    const complexion = cleanString(form.complexion);
-    const eyeColor = cleanString(form.eye_color);
-    const sentence = cleanString(form.sentence);
 
     // --------------------------------------------------------
     // Identification
     // --------------------------------------------------------
 
-    if (!code) {
-      nextErrors.code =
-        "Le code du détenu est obligatoire.";
-    }
-
-    if (!form.cell_id) {
-      nextErrors.cell_id =
+    if (!form.cellule_id) {
+      nextErrors.cellule_id =
         "La cellule est obligatoire.";
     }
 
@@ -615,24 +595,9 @@ export default function ManageInmate() {
         "L'état matrimonial est obligatoire.";
     }
 
-    if (!complexion) {
-      nextErrors.complexion =
-        "Le teint est obligatoire.";
-    }
-
-    if (!eyeColor) {
-      nextErrors.eye_color =
-        "La couleur des yeux est obligatoire.";
-    }
-
     // --------------------------------------------------------
     // Dossier judiciaire
     // --------------------------------------------------------
-
-    if (!sentence) {
-      nextErrors.sentence =
-        "La peine est obligatoire.";
-    }
 
     if (!form.date_from) {
       nextErrors.date_from =
@@ -827,9 +792,7 @@ export default function ManageInmate() {
 
     try {
       const inmate = {
-        code: cleanString(form.code),
-
-        cellule_id: form.cell_id,
+        cellule_id: form.cellule_id,
 
         firstname: cleanString(
           form.firstname
@@ -853,19 +816,11 @@ export default function ManageInmate() {
         marital_status:
           form.marital_status,
 
-        complexion: cleanString(
-          form.complexion
-        ),
-
-        eye_color: cleanString(
-          form.eye_color
-        ),
-
         crime_ids: form.crime_ids,
 
-        sentence: cleanString(
-          form.sentence
-        ),
+        arreter_par: cleanString(form.arreter_par),
+
+        lieu_arreter: cleanString(form.lieu_arreter),
 
         date_from: form.date_from,
 
@@ -950,28 +905,14 @@ export default function ManageInmate() {
        * fréquentes.
        */
 
-      if (
-        message
-          .toLowerCase()
-          .includes("unique")
-      ) {
-        toast.error(
-          "Le code du détenu existe déjà.",
-          {
-            description:
-              "Veuillez utiliser un autre code.",
-          }
-        );
-      } else {
-        toast.error(
-          isEditing
-            ? "Impossible de modifier le détenu."
-            : "Impossible d'enregistrer le détenu.",
-          {
-            description: message,
-          }
-        );
-      }
+      toast.error(
+        isEditing
+          ? "Impossible de modifier le détenu."
+          : "Impossible d'enregistrer le détenu.",
+        {
+          description: message,
+        }
+      );
     } finally {
       setSaving(false);
     }
@@ -1078,7 +1019,6 @@ export default function ManageInmate() {
           <Card
             withBorder
             radius="md"
-            shadow="sm"
           >
             <Card.Section
               withBorder
@@ -1112,72 +1052,6 @@ export default function ManageInmate() {
 
             <Stack p="lg">
 
-              <Grid>
-
-                {/* CODE */}
-
-                <Grid.Col
-                  span={{
-                    base: 12,
-                    md: 6,
-                  }}
-                >
-                  <TextInput
-                    label="Code"
-                    placeholder="Ex : DET-2026-001"
-                    required
-                    value={form.code}
-                    error={errors.code}
-                    onChange={(event) =>
-                      updateField(
-                        "code",
-                        event.currentTarget.value
-                      )
-                    }
-                    leftSection={
-                      <IconId size={17} />
-                    }
-                  />
-                </Grid.Col>
-
-                {/* CELLULE */}
-
-                <Grid.Col
-                  span={{
-                    base: 12,
-                    md: 6,
-                  }}
-                >
-                  <Select
-                    label="Prison & cellule"
-                    placeholder={
-                      cellules.length > 0
-                        ? "Sélectionner une cellule"
-                        : "Aucune cellule disponible"
-                    }
-                    required
-                    searchable
-                    clearable
-                    data={celluleOptions}
-                    value={form.cell_id}
-                    error={errors.cell_id}
-                    onChange={(value) =>
-                      updateField(
-                        "cell_id",
-                        value ?? ""
-                      )
-                    }
-                    leftSection={
-                      <IconHome size={17} />
-                    }
-                    nothingFoundMessage="Aucune cellule trouvée"
-                  />
-                </Grid.Col>
-
-              </Grid>
-
-              <Divider />
-
               {/* NOMS */}
 
               <Grid>
@@ -1190,7 +1064,7 @@ export default function ManageInmate() {
                 >
                   <TextInput
                     label="Prénom"
-                    placeholder="Jean"
+                    placeholder="Jeanne"
                     required
                     value={form.firstname}
                     error={errors.firstname}
@@ -1213,7 +1087,7 @@ export default function ManageInmate() {
                   }}
                 >
                   <TextInput
-                    label="Deuxième prénom"
+                    label="Postnom"
                     placeholder="Optionnel"
                     value={form.middlename}
                     error={errors.middlename}
@@ -1234,7 +1108,7 @@ export default function ManageInmate() {
                 >
                   <TextInput
                     label="Nom"
-                    placeholder="Dupont"
+                    placeholder="Mukendi"
                     required
                     value={form.lastname}
                     error={errors.lastname}
@@ -1379,54 +1253,6 @@ export default function ManageInmate() {
                 }
               />
 
-              {/* APPARENCE */}
-
-              <Grid>
-
-                <Grid.Col
-                  span={{
-                    base: 12,
-                    md: 6,
-                  }}
-                >
-                  <TextInput
-                    label="Teint"
-                    placeholder="Ex : Noir"
-                    required
-                    value={form.complexion}
-                    error={errors.complexion}
-                    onChange={(event) =>
-                      updateField(
-                        "complexion",
-                        event.currentTarget.value
-                      )
-                    }
-                  />
-                </Grid.Col>
-
-                <Grid.Col
-                  span={{
-                    base: 12,
-                    md: 6,
-                  }}
-                >
-                  <TextInput
-                    label="Couleur des yeux"
-                    placeholder="Ex : Marron"
-                    required
-                    value={form.eye_color}
-                    error={errors.eye_color}
-                    onChange={(event) =>
-                      updateField(
-                        "eye_color",
-                        event.currentTarget.value
-                      )
-                    }
-                  />
-                </Grid.Col>
-
-              </Grid>
-
             </Stack>
           </Card>
 
@@ -1437,7 +1263,6 @@ export default function ManageInmate() {
           <Card
             withBorder
             radius="md"
-            shadow="sm"
           >
             <Card.Section
               withBorder
@@ -1463,7 +1288,7 @@ export default function ManageInmate() {
                     size="xs"
                     c="dimmed"
                   >
-                    Informations relatives à la condamnation
+                    Informations relatives à l'arrestation et à l'incarcération
                   </Text>
                 </div>
               </Group>
@@ -1493,24 +1318,50 @@ export default function ManageInmate() {
                 nothingFoundMessage="Aucun crime trouvé"
               />
 
-              {/* PEINE */}
+              <Grid>
 
-              <TextInput
-                label="Peine"
-                placeholder="Ex : 10 ans"
-                required
-                value={form.sentence}
-                error={errors.sentence}
-                onChange={(event) =>
-                  updateField(
-                    "sentence",
-                    event.currentTarget.value
-                  )
-                }
-                leftSection={
-                  <IconScale size={17} />
-                }
-              />
+                <Grid.Col
+                  span={{
+                    base: 12,
+                    md: 6,
+                  }}
+                >
+                  <TextInput
+                    label="Arrêtée par"
+                    placeholder="Ex. Police nationale"
+                    value={form.arreter_par}
+                    error={errors.arreter_par}
+                    onChange={(event) =>
+                      updateField(
+                        "arreter_par",
+                        event.currentTarget.value
+                      )
+                    }
+                  />
+                </Grid.Col>
+
+                <Grid.Col
+                  span={{
+                    base: 12,
+                    md: 6,
+                  }}
+                >
+                  <TextInput
+                    label="Lieu d'arrestation"
+                    placeholder="Ville, commune ou quartier"
+                    value={form.lieu_arreter}
+                    error={errors.lieu_arreter}
+                    onChange={(event) =>
+                      updateField(
+                        "lieu_arreter",
+                        event.currentTarget.value
+                      )
+                    }
+                    leftSection={<IconMapPin size={17} />}
+                  />
+                </Grid.Col>
+
+              </Grid>
 
               {/* DATES */}
 
@@ -1523,7 +1374,7 @@ export default function ManageInmate() {
                   }}
                 >
                   <DatePickerInput
-                    label="Début de la peine"
+                    label="Date d'incarcération"
                     placeholder="Sélectionner une date"
                     required
                     value={
@@ -1556,7 +1407,7 @@ export default function ManageInmate() {
                   }}
                 >
                   <DatePickerInput
-                    label="Fin de la peine"
+                    label="Date de libération prévue"
                     placeholder="Optionnel"
                     value={
                       form.date_to
@@ -1590,6 +1441,43 @@ export default function ManageInmate() {
 
               </Grid>
 
+              <Grid>
+
+              {/* CELLULE */}
+              <Grid.Col
+                span={{
+                  base: 12,
+                  md: 12,
+                }}
+              >
+                <Select
+                  label="Prison & cellule"
+                  placeholder={
+                    cellules.length > 0
+                      ? "Sélectionner une cellule"
+                      : "Aucune cellule disponible"
+                  }
+                  required
+                  searchable
+                  clearable
+                  data={celluleOptions}
+                  value={form.cellule_id}
+                  error={errors.cellule_id}
+                  onChange={(value) =>
+                    updateField(
+                      "cellule_id",
+                      value ?? ""
+                    )
+                  }
+                  leftSection={
+                    <IconHome size={17} />
+                  }
+                  nothingFoundMessage="Aucune cellule trouvée"
+                />
+              </Grid.Col>
+
+              </Grid>
+
             </Stack>
           </Card>
 
@@ -1600,7 +1488,6 @@ export default function ManageInmate() {
           <Card
             withBorder
             radius="md"
-            shadow="sm"
           >
             <Card.Section
               withBorder
@@ -1713,10 +1600,9 @@ export default function ManageInmate() {
               PHOTO
           =================================================== */}
 
-          <Card
+          {/* <Card
             withBorder
             radius="md"
-            shadow="sm"
           >
             <Card.Section
               withBorder
@@ -1838,7 +1724,195 @@ export default function ManageInmate() {
               </Grid>
 
             </Stack>
-          </Card>
+          </Card> */}
+
+          <Card withBorder radius="md">
+
+            {/* En-tête */}
+            <Card.Section
+            withBorder
+            px="lg"
+            py="md"
+
+            >
+
+            <Group gap="sm">
+              <ThemeIcon
+                size={38}
+                radius="md"
+                variant="light"
+                color="violet"
+              >
+                <IconCamera size={20} />
+              </ThemeIcon>
+
+              <div>
+                <Text fw={600} size="sm">
+                  Photo du détenu
+                </Text>
+
+                <Text size="xs" c="dimmed">
+                  Ajoutez une photo d’identification du détenu
+                </Text>
+              </div>
+            </Group>
+
+            </Card.Section>
+
+              <Stack p="lg" gap="lg">
+
+            {/* Zone principale */}
+            <Grid align="center">
+
+              {/* Aperçu */}
+              <Grid.Col
+                span={{
+                  base: 12,
+                  sm: 5,
+                }}
+              >
+                <Stack align="center" gap="sm">
+
+                  <Paper
+                    withBorder
+                    radius="md"
+                    w="100%"
+                    h={220}
+                    bg="gray.0"
+                    className="flex items-center justify-center overflow-hidden"
+                  >
+                    {imagePreview ? (
+                      <Image
+                        src={imagePreview}
+                        h="100%"
+                        w="100%"
+                        fit="contain"
+                        alt="Photo du détenu"
+                      />
+                    ) : (
+                      <Stack
+                        align="center"
+                        justify="center"
+                        gap="xs"
+                        c="dimmed"
+                      >
+                        <ThemeIcon
+                          size={52}
+                          radius="xl"
+                          variant="light"
+                          color="gray"
+                        >
+                          <IconCamera size={26} />
+                        </ThemeIcon>
+
+                        <Text size="sm" fw={500}>
+                          Aucune photo
+                        </Text>
+
+                        <Text
+                          size="xs"
+                          ta="center"
+                          maw={220}
+                        >
+                          La photo d’identification apparaîtra ici
+                        </Text>
+                      </Stack>
+                    )}
+                  </Paper>
+
+                  {imagePreview && (
+                    <Badge
+                      size="sm"
+                      variant="light"
+                      color="green"
+                      leftSection={<IconCheck size={13} />}
+                    >
+                      Photo sélectionnée
+                    </Badge>
+                  )}
+
+                </Stack>
+              </Grid.Col>
+
+              {/* Actions */}
+              <Grid.Col
+                span={{
+                  base: 12,
+                  sm: 7,
+                }}
+              >
+                <Stack gap="md">
+
+                  <div>
+                    <Text size="sm" fw={600} mb={4}>
+                      Photo d’identification
+                    </Text>
+
+                    <Text size="xs" c="dimmed">
+                      Sélectionnez une photo claire et récente du détenu.
+                      Utilisez de préférence une image au format JPG ou PNG.
+                    </Text>
+                  </div>
+
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={imagePath ? "light" : "filled"}
+                    color="blue"
+                    leftSection={
+                      <IconCamera size={17} />
+                    }
+                    onClick={handleSelectPhoto}
+                    disabled={saving}
+                    fullWidth
+                  >
+                    {imagePath
+                      ? "Changer la photo"
+                      : "Sélectionner une photo"}
+                  </Button>
+
+                  {imagePath && (
+                    <Paper
+                      withBorder
+                      radius="sm"
+                      p="sm"
+                      bg="gray.0"
+                    >
+                      <Group gap="xs" wrap="nowrap">
+                        <ThemeIcon
+                          size={28}
+                          radius="sm"
+                          variant="light"
+                          color="green"
+                        >
+                          <IconCheck size={15} />
+                        </ThemeIcon>
+
+                        <div style={{ flex: 1 }}>
+                          <Text size="xs" fw={500}>
+                            Photo prête
+                          </Text>
+
+                          <Text
+                            size="xs"
+                            c="dimmed"
+                            truncate
+                          >
+                            La photo sera enregistrée avec le dossier
+                          </Text>
+                        </div>
+                      </Group>
+                    </Paper>
+                  )}
+
+                </Stack>
+              </Grid.Col>
+
+            </Grid>
+
+              </Stack>
+            </Card>
+
 
           {/* ==================================================
               INFORMATION

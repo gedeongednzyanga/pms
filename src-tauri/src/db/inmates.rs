@@ -131,17 +131,9 @@ pub async fn create_inmate(
     // VALIDATIONS
     // =========================
 
-    let code = input.code.trim().to_string();
     let firstname = input.firstname.trim().to_string();
     let lastname = input.lastname.trim().to_string();
     let address = input.address.trim().to_string();
-    let complexion = input.complexion.trim().to_string();
-    let eye_color = input.eye_color.trim().to_string();
-    let sentence = input.sentence.trim().to_string();
-
-    if code.is_empty() {
-        return Err("Le code du détenu est obligatoire.".into());
-    }
 
     if input.cellule_id.trim().is_empty() {
         return Err("La cellule est obligatoire.".into());
@@ -163,39 +155,8 @@ pub async fn create_inmate(
         return Err("L'adresse est obligatoire.".into());
     }
 
-    if complexion.is_empty() {
-        return Err("Le teint est obligatoire.".into());
-    }
-
-    if eye_color.is_empty() {
-        return Err("La couleur des yeux est obligatoire.".into());
-    }
-
-    if sentence.is_empty() {
-        return Err("La peine est obligatoire.".into());
-    }
-
     if input.date_from.trim().is_empty() {
         return Err("La date de début de peine est obligatoire.".into());
-    }
-
-    // =========================
-    // VÉRIFIER LE CODE
-    // =========================
-
-    let exists: Option<(i64,)> = sqlx::query_as(
-        "SELECT COUNT(*) FROM inmates WHERE code = ?"
-    )
-    .bind(&code)
-    .fetch_optional(pool)
-    .await
-    .map_err(|e| e.to_string())?;
-
-    if exists.map(|x| x.0).unwrap_or(0) > 0 {
-        return Err(format!(
-            "Le code du détenu '{}' existe déjà.",
-            code
-        ));
     }
 
     // =========================
@@ -259,7 +220,6 @@ pub async fn create_inmate(
         r#"
         INSERT INTO inmates (
             id,
-            code,
             cellule_id,
             firstname,
             middlename,
@@ -268,9 +228,8 @@ pub async fn create_inmate(
             sex,
             address,
             marital_status,
-            complexion,
-            eye_color,
-            sentence,
+            arreter_par,
+            lieu_arreter,
             date_from,
             date_to,
             emergency_name,
@@ -280,12 +239,11 @@ pub async fn create_inmate(
         )
         VALUES (
             ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-            ?, ?, ?, ?, ?, ?, ?, ?, ?
+            ?, ?, ?, ?, ?, ?, ?
         )
         "#
     )
     .bind(&id)
-    .bind(&code)
     .bind(&input.cellule_id)
     .bind(&firstname)
     .bind(&input.middlename)
@@ -294,9 +252,8 @@ pub async fn create_inmate(
     .bind(&input.sex)
     .bind(&address)
     .bind(&input.marital_status)
-    .bind(&complexion)
-    .bind(&eye_color)
-    .bind(&sentence)
+    .bind(&input.arreter_par)
+    .bind(&input.lieu_arreter)
     .bind(&input.date_from)
     .bind(&input.date_to)
     .bind(&input.emergency_name)
@@ -349,7 +306,6 @@ pub async fn get_inmate_by_id(
         r#"
         SELECT
             id,
-            code,
             cellule_id,
             firstname,
             middlename,
@@ -358,9 +314,8 @@ pub async fn get_inmate_by_id(
             sex,
             address,
             marital_status,
-            complexion,
-            eye_color,
-            sentence,
+            arreter_par,
+            lieu_arreter,
             date_from,
             date_to,
             emergency_name,
@@ -441,8 +396,6 @@ pub async fn update_inmate(
         return Err("L'identifiant du détenu est invalide.".into());
     }
 
-    let code = input.code.trim().to_string();
-
     let firstname =
         input.firstname.trim().to_string();
 
@@ -451,22 +404,6 @@ pub async fn update_inmate(
 
     let address =
         input.address.trim().to_string();
-
-    let complexion =
-        input.complexion.trim().to_string();
-
-    let eye_color =
-        input.eye_color.trim().to_string();
-
-    let sentence =
-        input.sentence.trim().to_string();
-
-
-    if code.is_empty() {
-        return Err(
-            "Le code du détenu est obligatoire.".into()
-        );
-    }
 
 
     if input.cellule_id.trim().is_empty() {
@@ -503,28 +440,6 @@ pub async fn update_inmate(
         );
     }
 
-
-    if complexion.is_empty() {
-        return Err(
-            "Le teint est obligatoire.".into()
-        );
-    }
-
-
-    if eye_color.is_empty() {
-        return Err(
-            "La couleur des yeux est obligatoire.".into()
-        );
-    }
-
-
-    if sentence.is_empty() {
-        return Err(
-            "La peine est obligatoire.".into()
-        );
-    }
-
-
     if input.date_from.trim().is_empty() {
         return Err(
             "La date de début de peine est obligatoire.".into()
@@ -560,39 +475,6 @@ pub async fn update_inmate(
             "Le détenu sélectionné n'existe pas.".into()
         );
     };
-
-
-    // =========================================================
-    // VERIFIER LE CODE UNIQUE
-    // =========================================================
-
-    let code_exists:
-        Option<(String,)> =
-        sqlx::query_as(
-            r#"
-            SELECT id
-            FROM inmates
-            WHERE code = ?
-              AND id != ?
-            LIMIT 1
-            "#
-        )
-        .bind(&code)
-        .bind(id)
-        .fetch_optional(pool)
-        .await
-        .map_err(|e| e.to_string())?;
-
-
-    if code_exists.is_some() {
-
-        return Err(
-            format!(
-                "Le code du détenu '{}' est déjà utilisé.",
-                code
-            )
-        );
-    }
 
 
     // =========================================================
@@ -734,8 +616,6 @@ pub async fn update_inmate(
             UPDATE inmates
             SET
 
-                code = ?,
-
                 cellule_id = ?,
 
                 firstname = ?,
@@ -749,11 +629,6 @@ pub async fn update_inmate(
                 address = ?,
 
                 marital_status = ?,
-
-                complexion = ?,
-                eye_color = ?,
-
-                sentence = ?,
 
                 date_from = ?,
                 date_to = ?,
@@ -769,8 +644,6 @@ pub async fn update_inmate(
             WHERE id = ?
             "#
         )
-        .bind(&code)
-
         .bind(&input.cellule_id)
 
         .bind(&firstname)
@@ -784,11 +657,6 @@ pub async fn update_inmate(
         .bind(&address)
 
         .bind(&input.marital_status)
-
-        .bind(&complexion)
-        .bind(&eye_color)
-
-        .bind(&sentence)
 
         .bind(&input.date_from)
         .bind(&input.date_to)
@@ -984,7 +852,6 @@ pub async fn get_inmates(
             ON ce.id = i.cellule_id
         WHERE
             ? = ''
-            OR i.code LIKE ?
             OR i.firstname LIKE ?
             OR i.middlename LIKE ?
             OR i.lastname LIKE ?
@@ -993,7 +860,6 @@ pub async fn get_inmates(
         "#
     )
     .bind(&search)
-    .bind(&pattern)
     .bind(&pattern)
     .bind(&pattern)
     .bind(&pattern)
@@ -1011,15 +877,14 @@ pub async fn get_inmates(
         r#"
         SELECT
             i.id AS id,
-            i.code AS code,
             i.firstname AS firstname,
             i.middlename AS middlename,
             i.lastname AS lastname,
             i.dob AS dob,
             i.sex AS sex,
-            i.sentence AS sentence,
             i.date_from AS date_from,
             i.date_to AS date_to,
+            r.release_date AS release_date,
 
             i.cellule_id AS cellule_id,
 
@@ -1034,9 +899,11 @@ pub async fn get_inmates(
         LEFT JOIN cellules ce
             ON ce.id = i.cellule_id
 
+        LEFT JOIN releases r
+            ON r.inmate_id = i.id
+
         WHERE
             ? = ''
-            OR i.code LIKE ?
             OR i.firstname LIKE ?
             OR i.middlename LIKE ?
             OR i.lastname LIKE ?
@@ -1049,7 +916,6 @@ pub async fn get_inmates(
         "#
     )
     .bind(&search)
-    .bind(&pattern)
     .bind(&pattern)
     .bind(&pattern)
     .bind(&pattern)
@@ -1076,4 +942,3 @@ pub async fn get_inmates(
         total_pages,
     })
 }
-

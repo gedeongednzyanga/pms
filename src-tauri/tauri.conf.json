@@ -25,6 +25,9 @@
   },
   "bundle": {
     "active": true,
+    "resources": [
+      "resources/fonts/DejaVuSans.ttf"
+    ],
     "targets": "all",
     "icon": [
       "icons/32x32.png",

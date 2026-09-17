@@ -30,7 +30,7 @@ pub struct DashboardStats {
 pub struct LatestPrisoner {
     pub id: String,
     pub name: String,
-    pub matricule: String,
+    pub admission_date: String,
     pub gender: String,
     pub prison: String,
     pub cell: String,

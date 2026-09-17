@@ -245,7 +245,7 @@ export default function Dashboard() {
               ? dashboard.total_inmates.toLocaleString()
               : "0"
           }
-          description="Total enregistré"
+          description="Actuellement incarcérés"
           icon={
             <IconUsers
               size={22}
@@ -679,7 +679,7 @@ export default function Dashboard() {
                 </Table.Th>
 
                 <Table.Th>
-                  Matricule
+                  Date d'incarcération
                 </Table.Th>
 
                 <Table.Th>
@@ -809,7 +809,7 @@ export default function Dashboard() {
                       <Table.Td>
 
                         <Text size="sm">
-                          {prisoner.matricule}
+                          {prisoner.admission_date}
                         </Text>
 
                       </Table.Td>

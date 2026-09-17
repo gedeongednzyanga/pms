@@ -26,7 +26,7 @@ export interface PrisonerEvolution {
 export interface LatestPrisoner {
   id: string;
   name: string;
-  matricule: string;
+  admission_date: string;
   gender: string;
   prison: string;
   cell: string;

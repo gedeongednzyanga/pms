@@ -1,10 +1,12 @@
 import {
   IconBuilding,
+  IconArrowsExchange,
   IconDashboard,
   IconFileDescription,
   // IconFileText,
   IconList,
   IconLock,
+  IconLogout,
   // IconReportAnalytics,
   IconSettings,
   IconTools,
@@ -52,6 +54,16 @@ const mainMenus: MenuItem[] = [
     icon: IconUser,
     path: "/inmates",
   },
+  {
+    label: "Libérations",
+    icon: IconLogout,
+    path: "/releases",
+  },
+  {
+    label: "Transferts",
+    icon: IconArrowsExchange,
+    path: "/transfers",
+  },
   // {
   //   label: "Visiteurs",
   //   icon: IconFileText,
@@ -94,7 +106,7 @@ const reportMenus: MenuItem[] = [
   {
     label: "Rapports",
     icon: IconFileDescription,
-    path: "/reports/record-history",
+    path: "/reports",
   },
   // {
   //   label: "Visiteurs mensuels",

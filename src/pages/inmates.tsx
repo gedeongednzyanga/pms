@@ -671,17 +671,6 @@ function InmateRow({
         </Text>
       </Table.Td>
 
-      {/* CODE */}
-
-      <Table.Td>
-        <Text
-          size="sm"
-          fw={600}
-          className="text-slate-700"
-        >
-          {inmate.code}
-        </Text>
-      </Table.Td>
 
       {/* NAME */}
 
@@ -894,12 +883,6 @@ function getStatus(inmate: Inmate): InmateStatus {
     }
   }
 
-  /*
-   * status = 1 => actif
-   */
-  if (Number(inmate.status) === 1) {
-    return "active";
-  }
 
   return "inactive";
 }

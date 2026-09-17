@@ -4,3 +4,5 @@ pub mod prisons;
 pub mod cellules;
 pub mod inmates;
 pub mod dashboards;
+pub mod movements;
+pub mod reports;

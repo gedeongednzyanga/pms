@@ -7,6 +7,7 @@ pub mod commands;
 pub mod db;
 pub mod models;
 pub mod auth;
+pub mod pdf;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -94,10 +95,26 @@ pub fn run() {
             commands::inmate_cmd::get_cellules_for_select_cmd,
             commands::inmate_cmd::get_crimes_for_select_cmd,
 
+            // LIBERATIONS ET TRANSFERTS
+            commands::movement_cmd::get_inmate_options_cmd,
+            commands::movement_cmd::get_cellule_options_cmd,
+            commands::movement_cmd::get_releases_cmd,
+            commands::movement_cmd::create_release_cmd,
+            commands::movement_cmd::update_release_cmd,
+            commands::movement_cmd::delete_release_cmd,
+            commands::movement_cmd::get_transfers_cmd,
+            commands::movement_cmd::create_transfer_cmd,
+            commands::movement_cmd::update_transfer_cmd,
+            commands::movement_cmd::delete_transfer_cmd,
+
+            // RAPPORTS PDF
+            commands::report_cmd::export_prisoners_report_pdf,
+            commands::report_cmd::export_transfers_report_pdf,
+            commands::report_cmd::export_releases_report_pdf,
+
             // DASHBOARD
             commands::dashboard::get_dashboard_stats_cmd,
         ])
         .run(tauri::generate_context!())
         .expect("Erreur au lancement de Tauri");
 }
-

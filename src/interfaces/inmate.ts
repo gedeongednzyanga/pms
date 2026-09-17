@@ -1,6 +1,5 @@
 export interface Inmate {
   id: string;
-  code: string;
   cellule_id: string;
 
   firstname: string;
@@ -12,10 +11,8 @@ export interface Inmate {
   address: string;
   marital_status: string;
 
-  complexion: string;
-  eye_color: string;
-
-  sentence: string;
+  arreter_par?: string | null;
+  lieu_arreter?: string | null;
   date_from: string;
   date_to?: string | null;
 
@@ -24,8 +21,6 @@ export interface Inmate {
   emergency_contact?: string | null;
 
   photo_path?: string | null;
-  status?: 'active' | 'inactive'
-
   created_at: string;
   updated_at: string;
 }
@@ -49,7 +44,6 @@ export interface InmateDetails {
 
 export interface InmateListItem {
   id: string;
-  code: string;
 
   firstname: string;
   middlename?: string | null;
@@ -58,9 +52,9 @@ export interface InmateListItem {
   dob: string;
   sex: string;
 
-  sentence: string;
   date_from: string;
   date_to?: string | null;
+  release_date?: string | null;
 
   cellule_id: string;
   cellule_code?: string | null;
