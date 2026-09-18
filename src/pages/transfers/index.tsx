@@ -78,7 +78,7 @@ export default function Transfers() {
     catch (error) { toast.error("Suppression impossible", { description: errorMessage(error) }); }
   };
 
-  return <div className="mx-auto max-w-6xl space-y-6 pb-10">
+  return <div className="mx-auto space-y-6 pb-5">
     <Group justify="space-between" align="end"><div><Title order={2}>Transferts</Title><Text c="dimmed" size="sm" mt={4}>Gérez les mouvements entre les cellules et les prisons.</Text></div><Button leftSection={<IconPlus size={18} />} onClick={openCreate}>Nouveau transfert</Button></Group>
     <Card withBorder radius="md">
       <Card.Section withBorder inheritPadding py="md"><Group justify="space-between"><Text fw={600}>Historique des transferts</Text><TextInput w={280} placeholder="Rechercher…" value={search} onChange={(event) => setSearch(event.currentTarget.value)} leftSection={<IconSearch size={16} />} /></Group></Card.Section>

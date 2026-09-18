@@ -98,7 +98,7 @@ export default function Releases() {
     }
   };
 
-  return <div className="mx-auto max-w-6xl space-y-6 pb-10">
+  return <div className="mx-auto space-y-6 pb-5">
     <Group justify="space-between" align="end">
       <div><Title order={2}>Libérations</Title><Text c="dimmed" size="sm" mt={4}>Enregistrez et suivez les sorties des détenues.</Text></div>
       <Button leftSection={<IconPlus size={18} />} onClick={openCreate}>Nouvelle libération</Button>

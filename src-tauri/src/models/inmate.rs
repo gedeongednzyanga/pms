@@ -95,6 +95,7 @@ pub struct InmateListItem {
     pub cellule_id: String,
     pub cellule_code: Option<String>,
     pub cellule_name: Option<String>,
+    pub prison_name: Option<String>,
 
     pub photo_path: Option<String>,
 

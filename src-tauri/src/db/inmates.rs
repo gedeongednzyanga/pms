@@ -850,6 +850,8 @@ pub async fn get_inmates(
         FROM inmates i
         LEFT JOIN cellules ce
             ON ce.id = i.cellule_id
+        JOIN prisons p 
+            ON ce.prison_id = p.id
         WHERE
             ? = ''
             OR i.firstname LIKE ?
@@ -890,6 +892,7 @@ pub async fn get_inmates(
 
             ce.code AS cellule_code,
             ce.cellule_name AS cellule_name,
+            p.prison_name,
 
             i.photo_path AS photo_path,
             i.created_at AS created_at
@@ -901,6 +904,9 @@ pub async fn get_inmates(
 
         LEFT JOIN releases r
             ON r.inmate_id = i.id
+        
+        JOIN prisons p 
+            ON ce.prison_id = p.id
 
         WHERE
             ? = ''

@@ -44,6 +44,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { toast } from "sonner";
 
 import { DashboardStats } from "../interfaces/dashboard";
+import { useNavigate } from "react-router";
 
 
 /* =========================================================
@@ -61,6 +62,7 @@ export default function Dashboard() {
   const [refreshing, setRefreshing] =
     useState(false);
 
+   const navigate = useNavigate();
 
   /* =========================================================
      CHARGEMENT DASHBOARD
@@ -158,15 +160,15 @@ export default function Dashboard() {
      TAUX OCCUPATION
   ========================================================= */
 
-  const occupancyPercentage =
-    dashboard &&
-    dashboard.total_capacity > 0
-      ? (
-          (dashboard.total_inmates /
-            dashboard.total_capacity) *
-          100
-        ).toFixed(1)
-      : "0.0";
+  // const occupancyPercentage =
+  //   dashboard &&
+  //   dashboard.total_capacity > 0
+  //     ? (
+  //         (dashboard.total_inmates /
+  //           dashboard.total_capacity) *
+  //         100
+  //       ).toFixed(1)
+  //     : "0.0";
 
 
   /* =========================================================
@@ -275,6 +277,25 @@ export default function Dashboard() {
           loading={loading}
         />
 
+        {/* HOMMES */}
+
+        <StatCard
+          title="Femmes"
+          value={
+            dashboard
+              ? dashboard.total_female.toLocaleString()
+              : "0"
+          }
+          description={`${malePercentage}% des détenus`}
+          icon={
+            <IconUser
+              size={22}
+            />
+          }
+          positive
+          loading={loading}
+        />
+
 
         {/* CELLULES */}
 
@@ -295,31 +316,12 @@ export default function Dashboard() {
         />
 
 
-        {/* ETABLISSEMENTS */}
-
         {/* <StatCard
-          title="Établissements"
-          value={
-            dashboard
-              ? dashboard.total_prisons.toLocaleString()
-              : "0"
-          }
-          description="Établissements actifs"
-          icon={
-            <IconBuilding
-              size={22}
-            />
-          }
-          positive
-          loading={loading}
-        /> */}
-
-        <StatCard
           title="Taux d'occupation"
           value={`${occupancyPercentage}%`}
           description={`${dashboard?.occupied_cells ?? 0} cellules occupées`}
           icon={<IconBuilding size={22} />}
-        />
+        /> */}
 
       </div>
 
@@ -1107,6 +1109,7 @@ export default function Dashboard() {
 
             <QuickAction
               label="Ajouter un détenu"
+              action={() => navigate("/inmates/new")}
               icon={
                 <IconUser
                   size={18}
@@ -1117,6 +1120,7 @@ export default function Dashboard() {
 
             <QuickAction
               label="Gérer les établissements"
+              action={() => navigate("/prisons")}
               icon={
                 <IconBuilding
                   size={18}
@@ -1126,7 +1130,8 @@ export default function Dashboard() {
 
 
             <QuickAction
-              label="Voir les crimes"
+              label="Voir les rapports"
+              action={() => navigate("/reports")}
               icon={
                 <IconScale
                   size={18}
@@ -1487,12 +1492,14 @@ function Activity({
 interface QuickActionProps {
   label: string;
   icon: React.ReactNode;
+  action: () => void;
 }
 
 
 function QuickAction({
   label,
   icon,
+  action
 }: QuickActionProps) {
 
   return (
@@ -1514,6 +1521,7 @@ function QuickAction({
         hover:bg-gray-50
         hover:border-blue-200
       "
+      onClick={action}
     >
 
       <div

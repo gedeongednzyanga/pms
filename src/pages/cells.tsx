@@ -132,14 +132,6 @@ export default function Cells() {
     setSearch("");
     setPage(1);
   };
-  // const filteredCells = cells.filter((cell) => {
-  //   const value = search.toLowerCase();
-
-  //   return (
-  //     cell.name.toLowerCase().includes(value) ||
-  //     cell.prison.toLowerCase().includes(value)
-  //   );
-  // });
 
   /* =========================
      DATE
@@ -157,7 +149,7 @@ export default function Cells() {
   };
 
   return (
-    <div className="space-y-5 p-6">
+    <div className=" space-y-6 pb-5">
 
       {/* =========================
           HEADER

@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import {
@@ -49,7 +48,6 @@ type ManageCellProps = {
 export default function ManageCell({
   cellId,
   onSuccess,
-  onCancel,
 }: ManageCellProps) {
   const isEdit = !!cellId;
 
@@ -64,11 +62,18 @@ export default function ManageCell({
   const [loadingData, setLoadingData] = useState(false);
   const [error, setError] = useState("");
 
-  /**
-   * ============================
-   * Charger les prisons
-   * ============================
-   */
+  const resetForm = () => {
+    setPrisonId(null);
+    setCode("");
+    setCelluleName("");
+    setCapacity("");
+    setError("");
+  };
+
+  // ============================================================
+  // Charger les prisons
+  // ============================================================
+
   const loadPrisons = async () => {
     try {
       setError("");
@@ -83,11 +88,10 @@ export default function ManageCell({
     }
   };
 
-  /**
-   * ============================
-   * Charger la cellule
-   * ============================
-   */
+  // ============================================================
+  // Charger la cellule en modification
+  // ============================================================
+
   const loadCell = async () => {
     if (!cellId) return;
 
@@ -95,7 +99,7 @@ export default function ManageCell({
       setLoadingData(true);
       setError("");
 
-     const cell = await invoke<Cell>("get_cellule_cmd", {
+      const cell = await invoke<Cell>("get_cellule_cmd", {
         id: cellId,
       });
 
@@ -116,21 +120,19 @@ export default function ManageCell({
     }
   };
 
-  /**
-   * ============================
-   * Initialisation
-   * ============================
-   */
+  // ============================================================
+  // Initialisation
+  // ============================================================
+
   useEffect(() => {
     loadPrisons();
     loadCell();
   }, [cellId]);
 
-  /**
-   * ============================
-   * Enregistrer
-   * ============================
-   */
+  // ============================================================
+  // Enregistrer
+  // ============================================================
+
   const handleSubmit = async () => {
     setError("");
 
@@ -152,44 +154,46 @@ export default function ManageCell({
     try {
       setLoading(true);
 
-      // const cell = await invoke<Cell>("create_cellule_cmd", {
-      //   data: {
-      //     prison_id: prisonId,
-      //     code: code.trim() || null,
-      //     cellule_name: celluleName.trim(),
-      //     capacity: Number(capacity),
-      //   },
-      // });
+      const data = {
+        prison_id: prisonId,
+        code: code.trim() || null,
+        cellule_name: celluleName.trim(),
+        capacity: Number(capacity),
+      };
 
-      const cell = isEdit
-        ? await invoke<Cell>("update_cellule_cmd", {
-            id: cellId,
-            data: {
-              prison_id: prisonId,
-              code: code.trim() || null,
-              cellule_name: celluleName.trim(),
-              capacity: Number(capacity),
-            },
-          })
-        : await invoke<Cell>("create_cellule_cmd", {
-            data: {
-              prison_id: prisonId,
-              code: code.trim() || null,
-              cellule_name: celluleName.trim(),
-              capacity: Number(capacity),
-            },
-          });
+      let cell: Cell;
+
+      if (isEdit) {
+        cell = await invoke<Cell>("update_cellule_cmd", {
+          id: cellId,
+          data,
+        });
+      } else {
+        cell = await invoke<Cell>("create_cellule_cmd", {
+          data,
+        });
+      }
+
+      // ========================================================
+      // Actualiser le composant parent
+      // ========================================================
 
       onSuccess?.(cell);
+      resetForm();
+
       notifications.show({
-        title: "Nouvelle cellule",
-        message:
-          "Cellule enregistrée avec succès.",
+        title: isEdit
+          ? "Cellule modifiée"
+          : "Nouvelle cellule",
+        message: isEdit
+          ? "Les informations de la cellule ont été mises à jour avec succès."
+          : "Cellule enregistrée avec succès.",
         color: "green",
+        icon: <IconCheck size={18} />,
       });
 
     } catch (error) {
-      console.error("Erreur création cellule :", error);
+      console.error("Erreur enregistrement cellule :", error);
 
       setError(
         typeof error === "string"
@@ -201,137 +205,157 @@ export default function ManageCell({
     }
   };
 
-  /**
-   * ============================
-   * Loading
-   * ============================
-   */
+  // ============================================================
+  // Loading
+  // ============================================================
+
   if (loadingData) {
     return (
-      <Card shadow="sm" radius="md" withBorder>
-        <div className="py-10 text-center text-gray-500">
-          Chargement...
-        </div>
-      </Card>
+      <div className="flex w-full justify-center px-4">
+        <Card
+          shadow="sm"
+          radius="md"
+          withBorder
+          className="w-full max-w-2xl"
+        >
+          <div className="py-10 text-center text-gray-500">
+            Chargement...
+          </div>
+        </Card>
+      </div>
     );
   }
 
   return (
-    <Card
-      shadow="sm"
-      radius="md"
-      withBorder
-      className="mx-auto w-full max-w-2xl"
-    >
-      {/* Header */}
-      <Group justify="space-between" mb="xl">
-        <Group gap="sm">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100">
-            <IconBuilding size={21} />
-          </div>
-
-          <div>
-            <Title order={3}>
-              {isEdit ? "Modifier la cellule" : "Nouvelle cellule"}
-            </Title>
-
-            <div className="text-sm text-gray-500">
-              {isEdit
-                ? "Modifier les informations de la cellule"
-                : "Ajouter une nouvelle cellule"}
+    <div className="flex w-full justify-center px-4 py-4">
+      <Card
+        shadow="sm"
+        radius="md"
+        withBorder
+        className="w-full max-w-2xl"
+      >
+        {/* Header */}
+        <Group justify="space-between" mb="xl">
+          <Group gap="sm">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100">
+              <IconBuilding size={21} />
             </div>
-          </div>
+
+            <div>
+              <Title order={3}>
+                {isEdit
+                  ? "Modifier la cellule"
+                  : "Nouvelle cellule"}
+              </Title>
+
+              <div className="text-sm text-gray-500">
+                {isEdit
+                  ? "Modifier les informations de la cellule"
+                  : "Ajouter une nouvelle cellule"}
+              </div>
+            </div>
+          </Group>
         </Group>
-      </Group>
 
-      {/* Error */}
-      {error && (
-        <div className="mb-5 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
-          {error}
-        </div>
-      )}
+        {/* Error */}
+        {error && (
+          <div className="mb-5 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+            {error}
+          </div>
+        )}
 
-      <Stack gap="md">
-        {/* Prison */}
-        <Select
-          label="Prison"
-          placeholder="Sélectionner une prison"
-          description="Sélectionnez la prison à laquelle appartient la cellule"
-          required
-          searchable
-          clearable
-          leftSection={<IconBuilding size={17} />}
-          data={prisons
-            .filter((prison) => prison.statut_prison === "active")
-            .map((prison) => ({
-              value: String(prison.id),
-              label: prison.prison_name,
-            }))}
-          value={prisonId}
-          onChange={setPrisonId}
-          disabled={loading}
-          nothingFoundMessage="Aucune prison trouvée"
-        />
+        <Stack gap="md">
 
-        {/* Code */}
-        <TextInput
-          label="Code de la cellule"
-          placeholder="Ex : CEL-A-01"
-          description="Code unique permettant d'identifier la cellule"
-          value={code}
-          onChange={(event) => setCode(event.currentTarget.value)}
-          disabled={loading}
-        />
+          {/* Prison */}
+          <Select
+            label="Prison"
+            placeholder="Sélectionner une prison"
+            description="Sélectionnez la prison à laquelle appartient la cellule"
+            required
+            searchable
+            clearable
+            leftSection={<IconBuilding size={17} />}
+            data={prisons
+              .filter(
+                (prison) =>
+                  prison.statut_prison === "active"
+              )
+              .map((prison) => ({
+                value: String(prison.id),
+                label: prison.prison_name,
+              }))}
+            value={prisonId}
+            onChange={setPrisonId}
+            disabled={loading}
+            nothingFoundMessage="Aucune prison trouvée"
+          />
 
-        {/* Nom */}
-        <TextInput
-          label="Nom de la cellule"
-          placeholder="Ex : Cellule A-01"
-          required
-          value={celluleName}
-          onChange={(event) => setCelluleName(event.currentTarget.value)}
-          disabled={loading}
-        />
+          {/* Code */}
+          <TextInput
+            label="Code de la cellule"
+            placeholder="Ex : CEL-A-01"
+            description="Code unique permettant d'identifier la cellule"
+            value={code}
+            onChange={(event) =>
+              setCode(event.currentTarget.value)
+            }
+            disabled={loading}
+          />
 
-        {/* Capacité */}
-        <NumberInput
-          label="Capacité"
-          placeholder="Ex : 20"
-          description="Nombre maximum de détenus que la cellule peut accueillir"
-          required
-          min={1}
-          allowDecimal={false}
-          value={capacity}
-          onChange={setCapacity}
-          disabled={loading}
-        />
-      </Stack>
+          {/* Nom */}
+          <TextInput
+            label="Nom de la cellule"
+            placeholder="Ex : Cellule A-01"
+            required
+            value={celluleName}
+            onChange={(event) =>
+              setCelluleName(event.currentTarget.value)
+            }
+            disabled={loading}
+          />
 
-      {/* Footer */}
-      <Group justify="flex-end" mt="xl">
-        <Button
-          variant="default"
-          leftSection={<IconX size={17} />}
-          onClick={onCancel}
-          disabled={loading}
-        >
-          Annuler
-        </Button>
+          {/* Capacité */}
+          <NumberInput
+            label="Capacité"
+            placeholder="Ex : 20"
+            description="Nombre maximum de détenus que la cellule peut accueillir"
+            required
+            min={1}
+            allowDecimal={false}
+            value={capacity}
+            onChange={setCapacity}
+            disabled={loading}
+          />
+        </Stack>
 
-        <Button
-          leftSection={
-            isEdit ? (
-              <IconCheck size={17} />
-            ) : (
-              <IconDeviceFloppy size={17} />
-            )
-          }
-          loading={loading}
-          onClick={handleSubmit}
-        >
-          {isEdit ? "Enregistrer les modifications" : "Enregistrer"}
-        </Button>
-      </Group>
-    </Card>
+        {/* Footer */}
+        <Group justify="flex-end" mt="xl">
+          <Button
+            variant="default"
+            leftSection={<IconX size={17} />}
+            onClick={() => {oncancel; navigation.back()}}
+            disabled={loading}
+          >
+            Annuler
+          </Button>
+
+          <Button
+            leftSection={
+              isEdit ? (
+                <IconCheck size={17} />
+              ) : (
+                <IconDeviceFloppy size={17} />
+              )
+            }
+            loading={loading}
+            onClick={handleSubmit}
+          >
+            {isEdit
+              ? "Enregistrer les modifications"
+              : "Enregistrer"}
+          </Button>
+        </Group>
+      </Card>
+    </div>
   );
 }

@@ -310,7 +310,7 @@ export default function Inmates() {
   ======================================================= */
 
   return (
-    <div className="space-y-6">
+    <div className=" space-y-6 pb-5">
       {/* =================================================
           HEADER
       ================================================= */}
@@ -474,34 +474,46 @@ export default function Inmates() {
           >
             <Table.Thead>
               <Table.Tr>
-                <Table.Th>#</Table.Th>
+                <Table.Th style={{ width: 50 }}>#</Table.Th>
 
-                <Table.Th>Code</Table.Th>
-
-                <Table.Th>Détenu</Table.Th>
-
-                <Table.Th>
-                  Date d'enregistrement
+                <Table.Th style={{ minWidth: 150 }}>
+                  Détenu
+                </Table.Th>
+                
+                <Table.Th style={{ width: 80 }}>
+                  Sexe
                 </Table.Th>
 
-                <Table.Th>
+                <Table.Th style={{ width: 120 }}>
+                  Prison
+                </Table.Th>
+
+                <Table.Th style={{ width: 120 }}>
+                  Cellule
+                </Table.Th>
+
+                <Table.Th style={{ width: 130 }}>
+                  Date d'entrée
+                </Table.Th>
+
+                <Table.Th style={{ width: 150 }}>
                   Date de libération
                 </Table.Th>
 
-                <Table.Th>Statut</Table.Th>
+                <Table.Th style={{ width: 120 }}>
+                  Statut
+                </Table.Th>
 
-                <Table.Th className="text-right">
+                <Table.Th style={{ width: 130 }}>
                   Actions
                 </Table.Th>
               </Table.Tr>
             </Table.Thead>
 
             <Table.Tbody>
-              {/* LOADING */}
-
               {loading ? (
                 <Table.Tr>
-                  <Table.Td colSpan={7}>
+                  <Table.Td colSpan={8}>
                     <Center py="xl">
                       <div className="flex items-center gap-3">
                         <Loader size="sm" />
@@ -530,30 +542,10 @@ export default function Inmates() {
                       handleDelete(inmate.id)
                     }
                   />
-                  // <InmateRow
-                  //   key={inmate.id}
-                  //   inmate={inmate}
-                  //   index={
-                  //     (page - 1) * perPage + index
-                  //   }
-                  //   onView={() =>
-                  //     navigate(
-                  //       `/inmates/${inmate.id}`
-                  //     )
-                  //   }
-                  //   onEdit={() =>
-                  //     navigate(
-                  //       `/inmates/${inmate.id}/edit`
-                  //     )
-                  //   }
-                  //   onDelete={() =>
-                  //     handleDelete(inmate.id)
-                  //   }
-                  // />
                 ))
               ) : (
                 <Table.Tr>
-                  <Table.Td colSpan={7}>
+                  <Table.Td colSpan={8}>
                     <div className="flex flex-col items-center justify-center py-12">
                       <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100">
                         <IconUser
@@ -566,12 +558,8 @@ export default function Inmates() {
                         Aucun détenu trouvé
                       </Text>
 
-                      <Text
-                        size="sm"
-                        c="dimmed"
-                      >
-                        {search ||
-                        statusFilter !== "all"
+                      <Text size="sm" c="dimmed">
+                        {search || statusFilter !== "all"
                           ? "Essayez de modifier vos critères de recherche."
                           : "Aucun détenu n'est encore enregistré."}
                       </Text>
@@ -643,6 +631,46 @@ interface InmateRowProps {
   onDelete: () => void;
 }
 
+function formatSex(sex?: string | null): string {
+  if (!sex) {
+    return "—";
+  }
+
+  switch (sex.toLowerCase()) {
+    case "m":
+    case "male":
+    case "masculin":
+      return "Masculin";
+
+    case "f":
+    case "female":
+    case "féminin":
+    case "feminin":
+      return "Féminin";
+
+    default:
+      return sex;
+  }
+}
+
+function getStatus(inmate: Inmate): InmateStatus {
+  // Une date de libération atteinte signifie que le détenu est libéré.
+  if (inmate.date_to) {
+    const releaseDate = new Date(inmate.date_to);
+
+    if (
+      !Number.isNaN(releaseDate.getTime()) &&
+      releaseDate <= new Date()
+    ) {
+      return "released";
+    }
+  }
+
+  // Par défaut, un détenu enregistré sans date de libération
+  // est considéré comme actuellement détenu.
+  return "active";
+}
+
 function InmateRow({
   inmate,
   photoPreview,
@@ -663,7 +691,9 @@ function InmateRow({
 
   return (
     <Table.Tr>
-      {/* # */}
+      {/* =================================================
+          #
+      ================================================= */}
 
       <Table.Td>
         <Text size="sm" c="dimmed">
@@ -671,24 +701,26 @@ function InmateRow({
         </Text>
       </Table.Td>
 
-
-      {/* NAME */}
+      {/* =================================================
+          DÉTENU
+      ================================================= */}
 
       <Table.Td>
         <div className="flex items-center gap-3">
           <Avatar
             src={photoPreview}
             radius="xl"
-            size={38}
+            size={40}
             color="blue"
           >
             {inmate.firstname?.charAt(0)}
             {inmate.lastname?.charAt(0)}
           </Avatar>
+
           <div className="min-w-0">
             <Text
               size="sm"
-              fw={500}
+              fw={600}
               className="truncate"
             >
               {name || "Nom non renseigné"}
@@ -701,15 +733,59 @@ function InmateRow({
         </div>
       </Table.Td>
 
-      {/* DATE */}
+      {/* =================================================
+          SEXE
+      ================================================= */}
 
       <Table.Td>
-        <Text size="sm">
-          {formatDate(inmate.created_at)}
+        <Text size="sm" fw={600}>
+          {formatSex(inmate.sex)}
         </Text>
       </Table.Td>
 
-      {/* RELEASE DATE */}
+      {/* =================================================
+          PRISON
+      ================================================= */}
+
+      <Table.Td>
+        <Text size="sm">
+          {inmate.prison_name}
+        </Text>
+      </Table.Td>
+
+      {/* =================================================
+          CELLULE
+      ================================================= */}
+
+      <Table.Td>
+        {inmate.cellule_name ? (
+          <Badge
+            variant="light"
+            color="gray"
+            size="sm"
+          >
+            {inmate.cellule_name}
+          </Badge>
+        ) : (
+          <Text size="sm" c="dimmed">
+            Non affecté
+          </Text>
+        )}
+      </Table.Td>
+
+      {/* =================================================
+          DATE D'ENTRÉE
+      ================================================= */}
+
+      <Table.Td>
+        <Text size="sm">
+          {formatDate(inmate.date_from)}
+        </Text>
+      </Table.Td>
+
+      {/* =================================================
+          DATE DE LIBÉRATION
+      ================================================= */}
 
       <Table.Td>
         {inmate.date_to ? (
@@ -718,18 +794,22 @@ function InmateRow({
           </Text>
         ) : (
           <Text size="sm" c="dimmed">
-            —
+            Non définie
           </Text>
         )}
       </Table.Td>
 
-      {/* STATUS */}
+      {/* =================================================
+          STATUT
+      ================================================= */}
 
       <Table.Td>
         <StatusBadge status={status} />
       </Table.Td>
 
-      {/* ACTIONS */}
+      {/* =================================================
+          ACTIONS
+      ================================================= */}
 
       <Table.Td>
         <div className="flex justify-end">
@@ -778,6 +858,142 @@ function InmateRow({
     </Table.Tr>
   );
 }
+
+// function InmateRow({
+//   inmate,
+//   photoPreview,
+//   index,
+//   onView,
+//   onEdit,
+//   onDelete,
+// }: InmateRowProps) {
+//   const name = [
+//     inmate.lastname,
+//     inmate.firstname,
+//     inmate.middlename,
+//   ]
+//     .filter(Boolean)
+//     .join(" ");
+
+//   const status = getStatus(inmate);
+
+//   return (
+//     <Table.Tr>
+//       {/* # */}
+
+//       <Table.Td>
+//         <Text size="sm" c="dimmed">
+//           {index + 1}
+//         </Text>
+//       </Table.Td>
+
+
+//       {/* NAME */}
+
+//       <Table.Td>
+//         <div className="flex items-center gap-3">
+//           <Avatar
+//             src={photoPreview}
+//             radius="xl"
+//             size={38}
+//             color="blue"
+//           >
+//             {inmate.firstname?.charAt(0)}
+//             {inmate.lastname?.charAt(0)}
+//           </Avatar>
+//           <div className="min-w-0">
+//             <Text
+//               size="sm"
+//               fw={500}
+//               className="truncate"
+//             >
+//               {name || "Nom non renseigné"}
+//             </Text>
+
+//             <Text size="xs" c="dimmed">
+//               ID #{inmate.id}
+//             </Text>
+//           </div>
+//         </div>
+//       </Table.Td>
+
+//       {/* DATE */}
+
+//       <Table.Td>
+//         <Text size="sm">
+//           {formatDate(inmate.created_at)}
+//         </Text>
+//       </Table.Td>
+
+//       {/* RELEASE DATE */}
+
+//       <Table.Td>
+//         {inmate.date_to ? (
+//           <Text size="sm">
+//             {formatDate(inmate.date_to)}
+//           </Text>
+//         ) : (
+//           <Text size="sm" c="dimmed">
+//             —
+//           </Text>
+//         )}
+//       </Table.Td>
+
+//       {/* STATUS */}
+
+//       <Table.Td>
+//         <StatusBadge status={status} />
+//       </Table.Td>
+
+//       {/* ACTIONS */}
+
+//       <Table.Td>
+//         <div className="flex justify-end">
+//           <Menu
+//             shadow="md"
+//             width={160}
+//             position="bottom-end"
+//           >
+//             <Menu.Target>
+//               <Button
+//                 variant="light"
+//                 size="xs"
+//               >
+//                 Actions
+//               </Button>
+//             </Menu.Target>
+
+//             <Menu.Dropdown>
+//               <Menu.Item
+//                 leftSection={<IconEye size={16} />}
+//                 onClick={onView}
+//               >
+//                 Voir
+//               </Menu.Item>
+
+//               <Menu.Item
+//                 leftSection={<IconEdit size={16} />}
+//                 onClick={onEdit}
+//               >
+//                 Modifier
+//               </Menu.Item>
+
+//               <Menu.Divider />
+
+//               <Menu.Item
+//                 color="red"
+//                 leftSection={<IconTrash size={16} />}
+//                 onClick={onDelete}
+//               >
+//                 Supprimer
+//               </Menu.Item>
+//             </Menu.Dropdown>
+//           </Menu>
+//         </div>
+//       </Table.Td>
+//     </Table.Tr>
+//   );
+// }
 
 /* =========================================================
    MINI STAT
@@ -867,25 +1083,25 @@ function StatusBadge({
    STATUS LOGIC
 ========================================================= */
 
-function getStatus(inmate: Inmate): InmateStatus {
-  /*
-   * Une date de libération passée ou aujourd'hui
-   * signifie que le détenu est libéré.
-   */
-  if (inmate.date_to) {
-    const releaseDate = new Date(inmate.date_to);
+// function getStatus(inmate: Inmate): InmateStatus {
+//   /*
+//    * Une date de libération passée ou aujourd'hui
+//    * signifie que le détenu est libéré.
+//    */
+//   if (inmate.date_to) {
+//     const releaseDate = new Date(inmate.date_to);
 
-    if (
-      !Number.isNaN(releaseDate.getTime()) &&
-      releaseDate <= new Date()
-    ) {
-      return "active";
-    }
-  }
+//     if (
+//       !Number.isNaN(releaseDate.getTime()) &&
+//       releaseDate <= new Date()
+//     ) {
+//       return "active";
+//     }
+//   }
 
 
-  return "inactive";
-}
+//   return "inactive";
+// }
 
 /* =========================================================
    DATE

@@ -1,6 +1,8 @@
 export interface Inmate {
   id: string;
   cellule_id: string;
+  cellule_name: string;
+  prison_name: string;
 
   firstname: string;
   middlename?: string | null;
