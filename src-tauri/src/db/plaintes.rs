@@ -293,3 +293,55 @@ pub async fn get_plaintes(
         )
     })
 }
+
+pub async fn delete_plainte(
+    pool: &SqlitePool,
+    id: String,
+) -> Result<(), String> {
+    // ============================================================
+    // VÉRIFIER QUE LA PLAINTE EXISTE
+    // ============================================================
+
+    let exists: Option<(String,)> = sqlx::query_as(
+        r#"
+        SELECT id
+        FROM plaintes
+        WHERE id = ?
+        "#,
+    )
+    .bind(&id)
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| {
+        format!(
+            "Erreur lors de la vérification de la plainte : {}",
+            e
+        )
+    })?;
+
+    if exists.is_none() {
+        return Err("Plainte introuvable".into());
+    }
+
+    // ============================================================
+    // SUPPRESSION
+    // ============================================================
+
+    sqlx::query(
+        r#"
+        DELETE FROM plaintes
+        WHERE id = ?
+        "#,
+    )
+    .bind(&id)
+    .execute(pool)
+    .await
+    .map_err(|e| {
+        format!(
+            "Erreur lors de la suppression de la plainte : {}",
+            e
+        )
+    })?;
+
+    Ok(())
+}

@@ -1,5 +1,7 @@
 use sqlx::SqlitePool;
 
+use crate::models::plainte::Plainte;
+
 #[derive(Debug, Clone, sqlx::FromRow)]
 pub struct PrisonerReportRow {
     pub full_name: String,
@@ -33,4 +35,32 @@ pub async fn get_prisoners_report_rows(
     .fetch_all(pool)
     .await
     .map_err(|error| error.to_string())
+}
+
+pub async fn get_plaintes_report_rows(
+    pool: &SqlitePool,
+) -> Result<Vec<Plainte>, String> {
+    sqlx::query_as::<_, Plainte>(
+        r#"
+        SELECT
+            id,
+            objet,
+            description,
+            date_faits,
+            lieu_faits,
+            statut,
+            created_at,
+            updated_at
+        FROM plaintes
+        ORDER BY date_faits DESC, created_at DESC
+        "#,
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|e| {
+        format!(
+            "Erreur lors de la récupération des plaintes pour le rapport : {}",
+            e
+        )
+    })
 }

@@ -1,6 +1,6 @@
 use tauri::State;
 
-use crate::{db::plaintes::{create_plainte, get_plaintes, update_plainte}, models::plainte::{Plainte, PlainteInput}, state::AppState};
+use crate::{db::plaintes::{create_plainte, delete_plainte, get_plaintes, update_plainte}, models::plainte::{Plainte, PlainteInput}, state::AppState};
 
 #[tauri::command]
 pub async fn create_plainte_cmd(
@@ -24,4 +24,16 @@ pub async fn get_plaintes_cmd(
     state: State<'_, AppState>,
 ) -> Result<Vec<Plainte>, String> {
     get_plaintes(&state.db).await
+}
+
+#[tauri::command]
+pub async fn delete_plainte_cmd(
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<(), String> {
+    delete_plainte(
+        &state.db,
+        id,
+    )
+    .await
 }

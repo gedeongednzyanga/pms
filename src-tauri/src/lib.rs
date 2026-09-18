@@ -1,6 +1,6 @@
 use tauri::Manager;
 
-use crate::state::AppState;
+use crate::{pdf::utils_pdf, state::AppState};
 
 pub mod state;
 pub mod commands;
@@ -111,14 +111,18 @@ pub fn run() {
             commands::plainte_smd::create_plainte_cmd,
             commands::plainte_smd::update_plainte_cmd,
             commands::plainte_smd::get_plaintes_cmd,
+            commands::plainte_smd::delete_plainte_cmd,
 
             // RAPPORTS PDF
             commands::report_cmd::export_prisoners_report_pdf,
             commands::report_cmd::export_transfers_report_pdf,
             commands::report_cmd::export_releases_report_pdf,
+            commands::report_cmd::export_plaintes_report_pdf,
 
             // DASHBOARD
             commands::dashboard::get_dashboard_stats_cmd,
+
+            utils_pdf::read_pdf_file,
         ])
         .run(tauri::generate_context!())
         .expect("Erreur au lancement de Tauri");

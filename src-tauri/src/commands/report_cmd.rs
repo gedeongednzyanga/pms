@@ -175,3 +175,59 @@ pub async fn export_releases_report_pdf(
         },
     )
 }
+
+fn format_statut_plainte(statut: &str) -> String {
+    match statut {
+        "ENREGISTREE" => "Enregistrée".to_string(),
+        "EN_COURS" => "En cours".to_string(),
+        "TRANSMISE" => "Transmise".to_string(),
+        "CLASSEE" => "Classée".to_string(),
+        "CLOTUREE" => "Clôturée".to_string(),
+        _ => statut.to_string(),
+    }
+}
+
+#[tauri::command]
+pub async fn export_plaintes_report_pdf(
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<String, String> {
+    let plaintes = reports::get_plaintes_report_rows(&state.db).await?;
+
+    let rows = plaintes
+        .iter()
+        .enumerate()
+        .map(|(index, plainte)| {
+            vec![
+                (index + 1).to_string(),
+                plainte.objet.clone(),
+                plainte.date_faits.clone(),
+                plainte.lieu_faits.clone(),
+                format_statut_plainte(&plainte.statut),
+                plainte.description.clone(),
+            ]
+        })
+        .collect();
+
+    save_report(
+        &app,
+        "Liste des plaintes",
+        "liste_plaintes",
+        PmsListReport {
+            title: "LISTE DES PLAINTES".into(),
+            description:
+                "Liste des plaintes et des faits signalés dans l'établissement pénitentiaire."
+                    .into(),
+            columns: vec![
+                centered_column("N°", 9.0),
+                left_column("Objet", 42.0),
+                centered_column("Date", 27.0),
+                left_column("Lieu des faits", 42.0),
+                centered_column("Statut", 32.0),
+                left_column("Description", 78.0),
+            ],
+            rows,
+            empty_message: "Aucune plainte enregistrée".into(),
+        },
+    )
+}
