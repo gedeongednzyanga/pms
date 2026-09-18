@@ -1,6 +1,8 @@
+
 import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useNavigate, useParams } from "react-router";
+import { readFile } from "@tauri-apps/plugin-fs";
 
 import {
   IconAlertCircle,
@@ -36,8 +38,10 @@ import {
 } from "@mantine/core";
 
 import { notifications } from "@mantine/notifications";
+
 import { InmateDetails } from "../../interfaces/inmate";
-import { readFile } from "@tauri-apps/plugin-fs";
+import PdfPreview from "../../components/preview-pdf";
+import { X } from "lucide-react";
 
 /* =========================================================
    TYPES
@@ -50,7 +54,6 @@ interface InmateCrime {
   libelle?: string;
   label?: string;
 }
-
 
 interface HistoryRecord {
   id: string | number;
@@ -79,25 +82,14 @@ function formatDate(date?: string | null): string {
   }).format(parsed);
 }
 
-
-function isTruthy(value?: number | boolean | string | null): boolean {
-  if (value === true || value === 1) return true;
-
-  if (typeof value === "string") {
-    return ["1", "true", "yes", "oui"].includes(value.toLowerCase());
-  }
-
-  return false;
-}
-
-
-function getCrimeName(crime: string | InmateCrime): string {
+function getCrimeName(
+  crime: string | InmateCrime
+): string {
   if (typeof crime === "string") {
     return crime;
   }
 
   return (
-    // crime.name ||
     crime.crime_name ||
     crime.designation ||
     crime.libelle ||
@@ -106,8 +98,20 @@ function getCrimeName(crime: string | InmateCrime): string {
   );
 }
 
+function getFullName(
+  inmate: InmateDetails["inmate"]
+): string {
+  return [
+    inmate.firstname,
+    inmate.middlename,
+    inmate.lastname,
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
 /* =========================================================
-   SECTION HEADER
+   REUSABLE COMPONENTS
 ========================================================= */
 
 interface SectionHeaderProps {
@@ -148,10 +152,6 @@ function SectionHeader({
   );
 }
 
-/* =========================================================
-   INFO
-========================================================= */
-
 interface InfoProps {
   label: string;
   value?: string | null;
@@ -165,11 +165,7 @@ function Info({
 }: InfoProps) {
   return (
     <div>
-      <Text
-        size="xs"
-        c="dimmed"
-        mb={4}
-      >
+      <Text size="xs" c="dimmed" mb={4}>
         {label}
       </Text>
 
@@ -189,36 +185,472 @@ function Info({
 }
 
 /* =========================================================
-   VIEW INMATE
+   PERSONAL INFORMATION
+========================================================= */
+
+interface PersonalInformationProps {
+  details: InmateDetails;
+  photoPreview: string | null;
+}
+
+function PersonalInformation({
+  details,
+  photoPreview,
+}: PersonalInformationProps) {
+  const inmate = details.inmate;
+
+  const fullName = getFullName(inmate);
+
+  const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(
+    fullName || "Détenu"
+  )}&size=300`;
+
+  return (
+    <Card withBorder radius="md">
+      <SectionHeader
+        icon={<IconUser size={20} />}
+        title="Informations personnelles"
+        description="Informations générales du détenu"
+      />
+
+      <Divider my="lg" />
+
+      <div className="grid gap-8 md:grid-cols-[180px_1fr]">
+        {/* PHOTO */}
+        <div className="flex justify-center">
+          <Image
+            src={photoPreview || avatarUrl}
+            alt={fullName || "Détenu"}
+            radius="md"
+            className="h-44 w-44 object-cover"
+            fallbackSrc={avatarUrl}
+          />
+        </div>
+
+        {/* INFORMATIONS */}
+        <div className="grid gap-x-8 gap-y-6 sm:grid-cols-2 lg:grid-cols-3">
+          <Info
+            label="Nom complet"
+            value={fullName}
+          />
+
+          <Info
+            label="Sexe"
+            value={
+              inmate.sex === "Male"
+                ? "Masculin"
+                : inmate.sex === "Female"
+                  ? "Féminin"
+                  : inmate.sex
+            }
+          />
+
+          <Info
+            label="Date de naissance"
+            value={formatDate(inmate.dob)}
+          />
+
+          <Info
+            label="État civil"
+            value={inmate.marital_status}
+          />
+
+          <Info
+            label="Adresse"
+            value={inmate.address}
+            icon={<IconMapPin size={15} />}
+          />
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+/* =========================================================
+   PRISON / CELL INFORMATION
+========================================================= */
+
+function AssignmentSection({
+  details,
+}: {
+  details: InmateDetails;
+}) {
+  return (
+    <Card withBorder radius="md">
+      <SectionHeader
+        icon={<IconShield size={20} />}
+        title="Affectation"
+        description="Informations sur l'établissement pénitentiaire"
+      />
+
+      <Divider my="lg" />
+
+      <div className="grid gap-6 md:grid-cols-2">
+        <Info
+          label="Cellule"
+          value={details.cellule?.cellule_name}
+          icon={<IconShield size={15} />}
+        />
+
+        <Info
+          label="Bloc / Quartier"
+          value={details.cellule?.cellule_name}
+        />
+      </div>
+    </Card>
+  );
+}
+
+/* =========================================================
+   CASE INFORMATION
+========================================================= */
+
+function CaseInformation({
+  details,
+}: {
+  details: InmateDetails;
+}) {
+  const crimes = details.crimes ?? [];
+
+  return (
+    <Card withBorder radius="md">
+      <SectionHeader
+        icon={<IconFileDescription size={20} />}
+        title="Détails de l'affaire"
+        description="Informations judiciaires"
+      />
+
+      <Divider my="lg" />
+
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* INFRACTIONS */}
+        <div>
+          <Text size="xs" c="dimmed" mb={8}>
+            Infractions commises
+          </Text>
+
+          {crimes.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {crimes.map((crime, index) => (
+                <Badge
+                  key={
+                    typeof crime === "string"
+                      ? `${crime}-${index}`
+                      : crime.id ?? index
+                  }
+                  variant="light"
+                >
+                  {getCrimeName(crime)}
+                </Badge>
+              ))}
+            </div>
+          ) : (
+            <Text size="sm" fw={500}>
+              —
+            </Text>
+          )}
+        </div>
+
+        <Info
+          label="Début de la peine"
+          value={formatDate(details.inmate.date_from)}
+        />
+
+        <Info
+          label="Fin de la peine"
+          value={formatDate(details.inmate.date_to)}
+        />
+      </div>
+    </Card>
+  );
+}
+
+/* =========================================================
+   EMERGENCY CONTACT
+========================================================= */
+
+function EmergencyContact({
+  details,
+}: {
+  details: InmateDetails;
+}) {
+  const inmate = details.inmate;
+
+  return (
+    <Card withBorder radius="md">
+      <SectionHeader
+        icon={<IconUsers size={20} />}
+        title="Contact d'urgence"
+        description="Personne à contacter en cas d'urgence"
+      />
+
+      <Divider my="lg" />
+
+      <div className="grid gap-6 md:grid-cols-3">
+        <Info
+          label="Nom"
+          value={inmate.emergency_name}
+        />
+
+        <Info
+          label="Relation"
+          value={inmate.emergency_relation}
+        />
+
+        <Info
+          label="Téléphone"
+          value={inmate.emergency_contact}
+          icon={<IconPhone size={15} />}
+        />
+      </div>
+    </Card>
+  );
+}
+
+/* =========================================================
+   HISTORY
+========================================================= */
+
+interface HistorySectionProps {
+  history: HistoryRecord[];
+}
+
+function HistorySection({
+  history,
+}: HistorySectionProps) {
+  return (
+    <Card withBorder radius="md">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <SectionHeader
+          icon={<IconHistory size={20} />}
+          title="Historique du détenu"
+          description="Historique des opérations et événements"
+        />
+
+        <Button
+          leftSection={<IconHistory size={17} />}
+          className="print:hidden"
+          disabled
+        >
+          Ajouter un événement
+        </Button>
+      </div>
+
+      <Divider my="lg" />
+
+      {history.length === 0 ? (
+        <div className="py-8 text-center">
+          <IconHistory
+            size={32}
+            className="mx-auto mb-2 text-slate-400"
+          />
+
+          <Text size="sm" c="dimmed">
+            Aucun événement dans l'historique.
+          </Text>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b text-left">
+                <th className="px-3 py-3 font-medium">
+                  Date
+                </th>
+
+                <th className="px-3 py-3 font-medium">
+                  Action
+                </th>
+
+                <th className="px-3 py-3 font-medium">
+                  Remarques
+                </th>
+
+                <th className="px-3 py-3 text-right print:hidden">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {history.map((record) => (
+                <tr
+                  key={record.id}
+                  className="border-b last:border-0 hover:bg-slate-50"
+                >
+                  <td className="px-3 py-4">
+                    <div className="flex items-center gap-2">
+                      <IconCalendar
+                        size={16}
+                        className="text-slate-400"
+                      />
+
+                      {formatDate(record.date)}
+                    </div>
+                  </td>
+
+                  <td className="px-3 py-4">
+                    <Badge variant="light">
+                      {record.action}
+                    </Badge>
+                  </td>
+
+                  <td className="px-3 py-4 text-slate-600">
+                    {record.remarks || "—"}
+                  </td>
+
+                  <td className="px-3 py-4 print:hidden">
+                    <div className="flex justify-end gap-1">
+                      <Button
+                        variant="subtle"
+                        size="xs"
+                      >
+                        <IconEdit size={16} />
+                      </Button>
+
+                      <Button
+                        variant="subtle"
+                        color="red"
+                        size="xs"
+                      >
+                        <IconTrash size={16} />
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+/* =========================================================
+   DELETE MODAL
+========================================================= */
+
+interface DeleteModalProps {
+  opened: boolean;
+  deleting: boolean;
+  inmateName: string;
+  onClose: () => void;
+  onConfirm: () => void;
+}
+
+function DeleteModal({
+  opened,
+  deleting,
+  inmateName,
+  onClose,
+  onConfirm,
+}: DeleteModalProps) {
+  return (
+    <Modal
+      opened={opened}
+      onClose={() => {
+        if (!deleting) {
+          onClose();
+        }
+      }}
+      title="Supprimer le détenu"
+      centered
+    >
+      <Stack>
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-50 text-red-600">
+            <IconAlertCircle size={22} />
+          </div>
+
+          <div>
+            <Text fw={600}>
+              Êtes-vous sûr ?
+            </Text>
+
+            <Text size="sm" c="dimmed" mt={4}>
+              Vous êtes sur le point de supprimer
+              définitivement le dossier de{" "}
+              <strong>{inmateName}</strong>.
+            </Text>
+          </div>
+        </div>
+
+        <Text size="sm" c="red">
+          Cette opération est irréversible.
+        </Text>
+
+        <Group justify="flex-end">
+          <Button
+            variant="default"
+            disabled={deleting}
+            onClick={onClose}
+            leftSection={<IconX size={17} />}
+          >
+            Annuler
+          </Button>
+
+          <Button
+            color="red"
+            loading={deleting}
+            onClick={onConfirm}
+            leftSection={
+              !deleting ? (
+                <IconTrash size={17} />
+              ) : undefined
+            }
+          >
+            Supprimer définitivement
+          </Button>
+        </Group>
+      </Stack>
+    </Modal>
+  );
+}
+
+/* =========================================================
+   MAIN COMPONENT
 ========================================================= */
 
 export default function ViewInmate() {
-
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
 
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  /* -------------------------------------------------------
+     STATE
+  ------------------------------------------------------- */
 
-  const [history, setHistory] = useState<HistoryRecord[]>([]);
+  const [details, setDetails] =
+    useState<InmateDetails | null>(null);
 
-  const [loading, setLoading] = useState(true);
+  const [history, setHistory] =
+    useState<HistoryRecord[]>([]);
 
-  const [deleting, setDeleting] = useState(false);
+  const [photoPreview, setPhotoPreview] =
+    useState<string | null>(null);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [deleting, setDeleting] =
+    useState(false);
 
   const [deleteModalOpened, setDeleteModalOpened] =
     useState(false);
 
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] =
+    useState<string | null>(null);
 
-  const [details, setDetails] = useState<InmateDetails | null>(null);
-
-  /* =======================================================
+  /* -------------------------------------------------------
      LOAD INMATE
-  ======================================================= */
+  ------------------------------------------------------- */
 
   const loadInmate = useCallback(async () => {
     if (!id) {
-      setError("Identifiant du détenu introuvable.");
+      setError(
+        "Identifiant du détenu introuvable."
+      );
+
       setLoading(false);
       return;
     }
@@ -227,14 +659,13 @@ export default function ViewInmate() {
       setLoading(true);
       setError(null);
 
-      const result = await invoke<InmateDetails>(
-        "get_inmate_by_id_cmd",
-        {
-          id,
-        }
-      );
+      const result =
+        await invoke<InmateDetails>(
+          "get_inmate_by_id_cmd",
+          { id }
+        );
 
-      if (!result || !result.inmate) {
+      if (!result?.inmate) {
         throw new Error(
           "Le détenu demandé n'existe pas."
         );
@@ -242,6 +673,8 @@ export default function ViewInmate() {
 
       setDetails(result);
 
+      // À remplacer par le chargement réel
+      // de l'historique lorsque le backend sera prêt.
       setHistory([]);
     } catch (err) {
       console.error(
@@ -269,49 +702,55 @@ export default function ViewInmate() {
     }
   }, [id]);
 
+  /* -------------------------------------------------------
+     LOAD PHOTO
+  ------------------------------------------------------- */
+
   useEffect(() => {
     let objectUrl: string | null = null;
 
     const loadPhoto = async () => {
-      if (!details?.inmate?.photo_path) {
+      const photoPath =
+        details?.inmate?.photo_path;
+
+      if (!photoPath) {
         setPhotoPreview(null);
         return;
       }
 
       try {
-        const bytes = await readFile(
-          details.inmate.photo_path
-        );
+        const bytes = await readFile(photoPath);
 
-        // Déterminer le type MIME
-        const extension = details.inmate.photo_path
+        const extension = photoPath
           .split(".")
           .pop()
           ?.toLowerCase();
 
-        let mimeType = "image/jpeg";
+        const mimeTypes: Record<string, string> = {
+          jpg: "image/jpeg",
+          jpeg: "image/jpeg",
+          png: "image/png",
+          webp: "image/webp",
+          gif: "image/gif",
+        };
 
-        if (extension === "png") {
-          mimeType = "image/png";
-        } else if (extension === "webp") {
-          mimeType = "image/webp";
-        } else if (extension === "gif") {
-          mimeType = "image/gif";
-        }
+        const mimeType =
+          mimeTypes[extension || ""] ||
+          "image/jpeg";
 
         const blob = new Blob(
           [bytes],
           { type: mimeType }
         );
 
-        objectUrl = URL.createObjectURL(blob);
+        objectUrl =
+          URL.createObjectURL(blob);
 
         setPhotoPreview(objectUrl);
-
-      } catch (error) {
+      } catch (err) {
         console.error(
-          "Impossible de charger la photo :",
-          error
+          "Impossible de charger la photo:",
+          err
         );
 
         setPhotoPreview(null);
@@ -325,20 +764,19 @@ export default function ViewInmate() {
         URL.revokeObjectURL(objectUrl);
       }
     };
-
   }, [details?.inmate?.photo_path]);
 
-  /* =======================================================
+  /* -------------------------------------------------------
      INITIAL LOAD
-  ======================================================= */
+  ------------------------------------------------------- */
 
   useEffect(() => {
     loadInmate();
   }, [loadInmate]);
 
-  /* =======================================================
+  /* -------------------------------------------------------
      DELETE
-  ======================================================= */
+  ------------------------------------------------------- */
 
   const handleDelete = async () => {
     if (!id || !details) {
@@ -350,9 +788,7 @@ export default function ViewInmate() {
 
       await invoke(
         "delete_inmate_cmd",
-        {
-          id,
-        }
+        { id }
       );
 
       notifications.show({
@@ -390,62 +826,48 @@ export default function ViewInmate() {
     }
   };
 
-  /* =======================================================
+  /* -------------------------------------------------------
      PRINT
-  ======================================================= */
+  ------------------------------------------------------- */
+  const [pdfFile, setPdfFile] = useState<string | null>(null);
+  const handleGenerateFiche = async () => {
+    if (!id) return;
 
-  const handlePrint = () => {
-    window.print();
+    try {
+      const path = await invoke<string>(
+        "export_inmate_fiche_pdf",
+        {
+          inmateId: id,
+        }
+      );
+
+      setPdfFile(path);
+
+      notifications.show({
+        title: "PDF généré",
+        message: `Fiche enregistrée : ${path}`,
+        color: "green",
+      });
+    } catch (error) {
+      notifications.show({
+        title: "Erreur",
+        message: String(error),
+        color: "red",
+      });
+    }
   };
 
-  /* =======================================================
+  /* -------------------------------------------------------
      DERIVED VALUES
-  ======================================================= */
+  ------------------------------------------------------- */
 
-  // const released = useMemo(() => {
-  //   return inmate ? isReleased(inmate) : false;
-  // }, [inmate]);
+  const fullName = details
+    ? getFullName(details.inmate)
+    : "";
 
-  // const active = useMemo(() => {
-  //   if (!inmate) return false;
-
-  //   return (
-  //     isTruthy(inmate.status) &&
-  //     !released
-  //   );
-  // }, [inmate, released]);
-
-  // const fullName = useMemo(() => {
-  //   if (!inmate) return "";
-
-  //   return getFullName(inmate);
-  // }, [inmate]);
-
-  // const prisonName = useMemo(() => {
-  //   if (!inmate) return "—";
-
-  //   return (
-  //     inmate.prison_name ||
-  //     inmate.prison ||
-  //     "—"
-  //   );
-  // }, [inmate]);
-
-  // const cellName = useMemo(() => {
-  //   if (!inmate) return "—";
-
-  //   return (
-  //     inmate.cell_block ||
-  //     inmate.cell_name ||
-  //     inmate.cellule_name ||
-  //     inmate.cell_code ||
-  //     "—"
-  //   );
-  // }, [inmate]);
-
-  /* =======================================================
+  /* -------------------------------------------------------
      LOADING
-  ======================================================= */
+  ------------------------------------------------------- */
 
   if (loading) {
     return (
@@ -453,16 +875,10 @@ export default function ViewInmate() {
         mih={400}
         className="w-full"
       >
-        <Stack
-          align="center"
-          gap="sm"
-        >
+        <Stack align="center" gap="sm">
           <Loader size="md" />
 
-          <Text
-            size="sm"
-            c="dimmed"
-          >
+          <Text size="sm" c="dimmed">
             Chargement du dossier du détenu...
           </Text>
         </Stack>
@@ -470,9 +886,9 @@ export default function ViewInmate() {
     );
   }
 
-  /* =======================================================
+  /* -------------------------------------------------------
      ERROR
-  ======================================================= */
+  ------------------------------------------------------- */
 
   if (error || !details) {
     return (
@@ -540,7 +956,7 @@ export default function ViewInmate() {
         className="mx-auto max-w-7xl space-y-6 pb-8"
       >
         {/* =================================================
-            HEADER
+            PAGE HEADER
         ================================================= */}
 
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between print:hidden">
@@ -563,10 +979,7 @@ export default function ViewInmate() {
                 Détails du détenu
               </Title>
 
-              <Text
-                size="sm"
-                c="dimmed"
-              >
+              <Text size="sm" c="dimmed">
                 Informations complètes du dossier
               </Text>
             </div>
@@ -578,7 +991,7 @@ export default function ViewInmate() {
               leftSection={
                 <IconPrinter size={18} />
               }
-              onClick={handlePrint}
+              onClick={handleGenerateFiche}
             >
               Imprimer
             </Button>
@@ -621,607 +1034,106 @@ export default function ViewInmate() {
             Dossier du détenu
           </Title>
 
-          <Text size="sm">
-            Code : {details.inmate.code}
+          <Text size="sm" mt={4}>
+            {fullName}
           </Text>
 
           <Divider my="md" />
         </div>
 
         {/* =================================================
-            STATUS
-        ================================================= */}
-
-        <div className="grid gap-4 md:grid-cols-2">
-          <Card
-            withBorder
-            radius="md"
-          >
-            <Group justify="space-between">
-              <div>
-                <Text
-                  size="xs"
-                  c="dimmed"
-                >
-                  STATUT DU DÉTENU
-                </Text>
-
-                <Text
-                  fw={600}
-                  mt={4}
-                >
-                  -
-                  {/* {released
-                    ? "Libéré"
-                    : active
-                      ? "Actif"
-                      : "Inactif"} */}
-                </Text>
-              </div>
-
-              <Badge
-                size="lg"
-                // color={
-                //   released
-                //     ? "blue"
-                //     : active
-                //       ? "green"
-                //       : "red"
-                // }
-                variant="light"
-              >
-                {/* {released
-                  ? "Libéré"
-                  : active
-                    ? "Actif"
-                    : "Inactif"} */}
-              </Badge>
-            </Group>
-          </Card>
-
-          <Card
-            withBorder
-            radius="md"
-          >
-            <Group justify="space-between">
-              <div>
-                <Text
-                  size="xs"
-                  c="dimmed"
-                >
-                  PRIVILÈGE DE VISITE
-                </Text>
-
-                <Text
-                  fw={600}
-                  mt={4}
-                >
-                  {isTruthy(
-                    // inmate.visiting_privilege
-                  )
-                    ? "Visites autorisées"
-                    : "Visites interdites"}
-                </Text>
-              </div>
-
-              <Badge
-                size="lg"
-                color={
-                  isTruthy(
-                    // inmate.visiting_privilege
-                  )
-                    ? "green"
-                    : "red"
-                }
-                variant="light"
-              >
-                {isTruthy(
-                  // inmate.visiting_privilege
-                )
-                  ? "Autorisé"
-                  : "Interdit"}
-              </Badge>
-            </Group>
-          </Card>
-        </div>
-
-        {/* =================================================
             PERSONAL INFORMATION
         ================================================= */}
 
-        <Card
-          withBorder
-          radius="md"
-        >
-          <SectionHeader
-            icon={
-              <IconUser size={20} />
-            }
-            title="Informations personnelles"
-            description="Informations générales du détenu"
-          />
-
-          <Divider my="lg" />
-
-          <div className="grid gap-8 md:grid-cols-[180px_1fr]">
-            {/* PHOTO */}
-
-            <div className="flex justify-center">
-              <Image
-                src={
-                  photoPreview ||
-                  `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                    details.inmate.lastname ||
-                    details.inmate.firstname ||
-                    "Détenu"
-                  )}&size=300`
-                }
-                alt={`${details.inmate.firstname} ${details.inmate.lastname}`}
-                radius="md"
-                className="h-44 w-44 object-cover"
-                fallbackSrc={`https://ui-avatars.com/api/?name=${encodeURIComponent(
-                  details.inmate.firstname || "Détenu"
-                )}&size=300`}
-              />
-            </div>
-
-            {/* DETAILS */}
-
-            <div className="grid gap-x-8 gap-y-6 sm:grid-cols-2 lg:grid-cols-3">
-              <Info
-                label="Nom complet"
-                value={details.inmate.firstname}
-              />
-
-              <Info
-                label="Code"
-                value={details.inmate.code}
-              />
-
-              <Info
-                label="Sexe"
-                value={
-                  details.inmate.sex === "Male"
-                    ? "Masculin"
-                    : details.inmate.sex === "Female"
-                      ? "Féminin"
-                      : details.inmate.sex
-                }
-              />
-
-              <Info
-                label="Date de naissance"
-                value={formatDate(
-                  details.inmate.dob
-                )}
-              />
-
-              <Info
-                label="État civil"
-                value={
-                  details.inmate.marital_status
-                }
-              />
-
-              <Info
-                label="Teint"
-                value={
-                  details.inmate.complexion
-                }
-              />
-
-              <Info
-                label="Couleur des yeux"
-                value={
-                  details.inmate.eye_color
-                }
-              />
-
-              <Info
-                label="Adresse"
-                value={details.inmate.address}
-                icon={
-                  <IconMapPin
-                    size={15}
-                  />
-                }
-              />
-            </div>
-          </div>
-        </Card>
+        <PersonalInformation
+          details={details}
+          photoPreview={photoPreview}
+        />
 
         {/* =================================================
-            PRISON INFORMATION
+            ASSIGNMENT
         ================================================= */}
 
-        <Card
-          withBorder
-          radius="md"
-        >
-          <SectionHeader
-            icon={
-              <IconShield size={20} />
-            }
-            title="Affectation"
-            description="Informations sur l'établissement pénitentiaire"
-          />
-
-          <Divider my="lg" />
-
-          <div className="grid gap-6 md:grid-cols-2">
-            <Info
-              label="Prison"
-              value={details.cellule?.cellule_name}
-              icon={
-                <IconShield
-                  size={15}
-                />
-              }
-            />
-
-            <Info
-              label="Bloc / Cellule"
-              value={details.cellule?.cellule_name}
-            />
-          </div>
-        </Card>
+        <AssignmentSection
+          details={details}
+        />
 
         {/* =================================================
-            CASE DETAILS
+            CASE INFORMATION
         ================================================= */}
 
-        <Card
-          withBorder
-          radius="md"
-        >
-          <SectionHeader
-            icon={
-              <IconFileDescription
-                size={20}
-              />
-            }
-            title="Détails de l'affaire"
-            description="Informations judiciaires"
-          />
-
-          <Divider my="lg" />
-
-          <div className="grid gap-6 md:grid-cols-2">
-            <div>
-              <Text
-                size="xs"
-                c="dimmed"
-                mb={8}
-              >
-                Infractions commises
-              </Text>
-
-              {details.crimes &&
-              details.crimes.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {details.crimes.map(
-                    (crime, index) => (
-                      <Badge
-                        key={
-                          typeof crime ===
-                          "string"
-                            ? `${crime}-${index}`
-                            : crime.id ??
-                              index
-                        }
-                        variant="light"
-                      >
-                        {getCrimeName(
-                          crime
-                        )}
-                      </Badge>
-                    )
-                  )}
-                </div>
-              ) : (
-                <Text
-                  size="sm"
-                  fw={500}
-                >
-                  —
-                </Text>
-              )}
-            </div>
-
-            <Info
-              label="Peine"
-              value={
-                details.inmate.sentence
-              }
-            />
-
-            <Info
-              label="Début de la peine"
-              value={formatDate(
-                details.inmate.date_from
-              )}
-            />
-
-            <Info
-              label="Fin de la peine"
-              value={formatDate(
-                details.inmate.date_to
-              )}
-            />
-          </div>
-        </Card>
+        <CaseInformation
+          details={details}
+        />
 
         {/* =================================================
             EMERGENCY CONTACT
         ================================================= */}
 
-        <Card
-          withBorder
-          radius="md"
-        >
-          <SectionHeader
-            icon={
-              <IconUsers size={20} />
-            }
-            title="Contact d'urgence"
-            description="Personne à contacter en cas d'urgence"
-          />
-
-          <Divider my="lg" />
-
-          <div className="grid gap-6 md:grid-cols-3">
-            <Info
-              label="Nom"
-              value={
-                details.inmate.emergency_name
-              }
-            />
-
-            <Info
-              label="Relation"
-              value={
-                details.inmate.emergency_relation
-              }
-            />
-
-            <Info
-              label="Téléphone"
-              value={
-                details.inmate.emergency_contact
-              }
-              icon={
-                <IconPhone size={15} />
-              }
-            />
-          </div>
-        </Card>
+        <EmergencyContact
+          details={details}
+        />
 
         {/* =================================================
             HISTORY
         ================================================= */}
 
-        <Card
-          withBorder
-          radius="md"
-        >
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <SectionHeader
-              icon={
-                <IconHistory
-                  size={20}
-                />
-              }
-              title="Historique du détenu"
-              description="Historique des opérations et événements"
-            />
-
-            <Button
-              leftSection={
-                <IconHistory
-                  size={17}
-                />
-              }
-              className="print:hidden"
-              disabled
-            >
-              Ajouter un événement
-            </Button>
-          </div>
-
-          <Divider my="lg" />
-
-          {history.length === 0 ? (
-            <div className="py-8 text-center">
-              <IconHistory
-                size={32}
-                className="mx-auto mb-2 text-slate-400"
-              />
-
-              <Text
-                size="sm"
-                c="dimmed"
-              >
-                Aucun événement dans
-                l'historique.
-              </Text>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b text-left">
-                    <th className="px-3 py-3 font-medium">
-                      Date
-                    </th>
-
-                    <th className="px-3 py-3 font-medium">
-                      Action
-                    </th>
-
-                    <th className="px-3 py-3 font-medium">
-                      Remarques
-                    </th>
-
-                    <th className="px-3 py-3 text-right print:hidden">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {history.map(
-                    (record) => (
-                      <tr
-                        key={record.id}
-                        className="border-b last:border-0 hover:bg-slate-50"
-                      >
-                        <td className="px-3 py-4">
-                          <div className="flex items-center gap-2">
-                            <IconCalendar
-                              size={16}
-                              className="text-slate-400"
-                            />
-
-                            {formatDate(
-                              record.date
-                            )}
-                          </div>
-                        </td>
-
-                        <td className="px-3 py-4">
-                          <Badge variant="light">
-                            {
-                              record.action
-                            }
-                          </Badge>
-                        </td>
-
-                        <td className="px-3 py-4 text-slate-600">
-                          {
-                            record.remarks ||
-                            "—"
-                          }
-                        </td>
-
-                        <td className="px-3 py-4 print:hidden">
-                          <div className="flex justify-end gap-1">
-                            <Button
-                              variant="subtle"
-                              size="xs"
-                            >
-                              <IconEdit
-                                size={
-                                  16
-                                }
-                              />
-                            </Button>
-
-                            <Button
-                              variant="subtle"
-                              color="red"
-                              size="xs"
-                            >
-                              <IconTrash
-                                size={
-                                  16
-                                }
-                              />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </Card>
+        <HistorySection
+          history={history}
+        />
       </div>
 
       {/* ===================================================
           DELETE MODAL
       =================================================== */}
 
-      <Modal
+      <DeleteModal
         opened={deleteModalOpened}
+        deleting={deleting}
+        inmateName={fullName}
         onClose={() =>
-          !deleting &&
           setDeleteModalOpened(false)
         }
-        title="Supprimer le détenu"
-        centered
-      >
-        <Stack>
-          <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-50 text-red-600">
-              <IconAlertCircle
-                size={22}
-              />
+        onConfirm={handleDelete}
+      />
+
+       {pdfFile && (
+        <div className="fixed inset-0 z-9999 flex items-center justify-center bg-black/60 p-3 sm:p-5">
+          {/* CONTENEUR MODAL */}
+          <div className="flex h-[95vh] w-full max-w-6xl flex-col overflow-hidden rounded-lg bg-white shadow-2xl ">
+
+            {/* HEADER */}
+            <div className="flex shrink-0 items-center justify-between border-b px-5 py-3 ">
+              <div className="min-w-0">
+                <h2 className="truncate text-sm font-semibold">
+                  Aperçu du rapport
+                </h2>
+
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Vérifiez le document avant impression.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setPdfFile(null)}
+                className="ml-4 flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950"
+                aria-label="Fermer"
+              >
+                <X className="h-5 w-5" />
+              </button>
             </div>
 
-            <div>
-              <Text fw={600}>
-                Êtes-vous sûr ?
-              </Text>
-
-              <Text
-                size="sm"
-                c="dimmed"
-                mt={4}
-              >
-                Vous êtes sur le point de
-                supprimer définitivement le
-                dossier de{" "}
-                <strong>
-                  {details.inmate.firstname}
-                </strong>
-                .
-              </Text>
+            {/* PDF */}
+            <div className="min-h-0 flex-1 bg-slate-100 p-2 dark:bg-slate-950 sm:p-4">
+              <div className="h-full w-full overflow-hidden rounded-md bg-white shadow-sm">
+                <PdfPreview file={pdfFile} />
+              </div>
             </div>
           </div>
-
-          <Text
-            size="sm"
-            c="red"
-          >
-            Cette opération est
-            irréversible.
-          </Text>
-
-          <Group justify="flex-end">
-            <Button
-              variant="default"
-              disabled={deleting}
-              onClick={() =>
-                setDeleteModalOpened(
-                  false
-                )
-              }
-              leftSection={
-                <IconX size={17} />
-              }
-            >
-              Annuler
-            </Button>
-
-            <Button
-              color="red"
-              loading={deleting}
-              onClick={handleDelete}
-              leftSection={
-                !deleting ? (
-                  <IconTrash
-                    size={17}
-                  />
-                ) : undefined
-              }
-            >
-              Supprimer définitivement
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
+        </div>
+      )}
     </>
   );
 }
+

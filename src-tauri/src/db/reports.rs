@@ -1,6 +1,6 @@
 use sqlx::SqlitePool;
 
-use crate::models::plainte::Plainte;
+use crate::models::{inmate::InmateFiche, plainte::Plainte};
 
 #[derive(Debug, Clone, sqlx::FromRow)]
 pub struct PrisonerReportRow {
@@ -61,6 +61,66 @@ pub async fn get_plaintes_report_rows(
         format!(
             "Erreur lors de la récupération des plaintes pour le rapport : {}",
             e
+        )
+    })
+}
+
+
+pub async fn get_inmate_for_fiche(
+    pool: &SqlitePool,
+    inmate_id: &str,
+) -> Result<InmateFiche, String> {
+    let inmate = sqlx::query_as::<_, InmateFiche>(
+        r#"
+        SELECT
+            i.id,
+
+            i.firstname,
+            i.middlename,
+            i.lastname,
+
+            i.dob,
+            i.sex,
+            i.address,
+            i.marital_status,
+
+            i.arreter_par,
+            i.lieu_arreter,
+
+            i.date_from,
+            i.date_to,
+
+            i.emergency_name,
+            i.emergency_relation,
+            i.emergency_contact,
+
+            i.photo_path,
+
+            i.created_at,
+            i.updated_at,
+
+            i.cellule_id,
+            c.cellule_name
+
+        FROM inmates i
+
+        LEFT JOIN cellules c
+            ON c.id = i.cellule_id
+
+        WHERE i.id = ?
+
+        LIMIT 1
+        "#,
+    )
+    .bind(inmate_id)
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| format!("Erreur lors de la récupération du détenu : {}", e))?;
+
+    inmate.ok_or_else(|| {
+        format!(
+            "Aucun détenu trouvé avec l'identifiant : {}",
+            inmate_id
         )
     })
 }

@@ -122,3 +122,35 @@ pub struct CrimeSelect {
     pub id: String,
     pub crime_name: String,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct InmateFiche {
+    pub id: String,
+
+    pub firstname: String,
+    pub middlename: Option<String>,
+    pub lastname: String,
+
+    pub dob: String,
+    pub sex: String,
+    pub address: String,
+    pub marital_status: String,
+
+    pub arreter_par: Option<String>,
+    pub lieu_arreter: Option<String>,
+
+    pub date_from: String,
+    pub date_to: Option<String>,
+
+    pub emergency_name: Option<String>,
+    pub emergency_relation: Option<String>,
+    pub emergency_contact: Option<String>,
+
+    pub photo_path: Option<String>,
+
+    pub created_at: String,
+    pub updated_at: String,
+
+    pub cellule_id: String,
+    pub cellule_name: Option<String>,
+}

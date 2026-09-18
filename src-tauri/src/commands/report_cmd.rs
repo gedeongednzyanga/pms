@@ -2,13 +2,9 @@ use chrono::Local;
 use tauri::{AppHandle, State};
 
 use crate::{
-    db::{movements, reports},
-    pdf::{
-        engine::{document::get_pdf_directory, renderer::PdfRenderer},
-        layouts::{footer::PdfFooter, header::PdfHeader},
-        reports::pms_reports::{centered_column, left_column, PmsListReport},
-    },
-    state::AppState,
+    db::{movements, reports::{self, get_inmate_for_fiche}}, pdf::{
+        engine::{document::get_pdf_directory, renderer::PdfRenderer}, layouts::{footer::PdfFooter, header::PdfHeader}, reports::{fiche_inmate::InmateFicheReport, pms_reports::{PmsListReport, centered_column, left_column}},
+    }, state::AppState,
 };
 
 fn pdf_header() -> PdfHeader {
@@ -229,5 +225,131 @@ pub async fn export_plaintes_report_pdf(
             rows,
             empty_message: "Aucune plainte enregistrée".into(),
         },
+    )
+}
+
+#[tauri::command]
+pub async fn export_inmate_fiche_pdf(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    inmate_id: String,
+) -> Result<String, String> {
+
+    // =====================================================
+    // RÉCUPÉRER LES DONNÉES DU DÉTENU
+    // =====================================================
+
+    let inmate = get_inmate_for_fiche(
+        &state.db,
+        &inmate_id,
+    )
+    .await
+    .map_err(|e| {
+        format!(
+            "Erreur récupération détenu : {}",
+            e
+        )
+    })?;
+
+    // =====================================================
+    // HEADER
+    // =====================================================
+
+    let header = PdfHeader {
+        school_name:
+            "SYSTÈME DE GESTION PÉNITENTIAIRE".into(),
+
+        address:
+            "Fiche individuelle du détenu".into(),
+
+        phone:
+            "".into(),
+
+        email:
+            "".into(),
+
+        logo:
+            None,
+    };
+
+    // =====================================================
+    // FOOTER
+    // =====================================================
+
+    let footer = PdfFooter {
+        company_name:
+            "PMS — Gestion pénitentiaire".into(),
+
+        generated_date:
+            Local::now()
+                .format("%d/%m/%Y")
+                .to_string(),
+
+        show_page_number:
+            true,
+    };
+
+    // =====================================================
+    // RENDERER
+    // =====================================================
+
+    let mut renderer =
+        PdfRenderer::new_landscape(
+            &app,
+            "Fiche détenu",
+        )?;
+
+    // =====================================================
+    // LAYOUT
+    // =====================================================
+
+    renderer.pdf.set_layout(
+        header,
+        footer,
+    );
+
+    // =====================================================
+    // RAPPORT
+    // =====================================================
+
+    renderer.render(
+        InmateFicheReport {
+            inmate,
+        }
+    )?;
+
+    // =====================================================
+    // NOM DU FICHIER
+    // =====================================================
+
+    let filename = format!(
+        "fiche_detenu_{}_{}.pdf",
+        inmate_id,
+        Local::now()
+            .format("%Y%m%d_%H%M%S"),
+    );
+
+    // =====================================================
+    // CHEMIN
+    // =====================================================
+
+    let path =
+        get_pdf_directory(&app)?
+            .join(filename);
+
+    // =====================================================
+    // SAUVEGARDE
+    // =====================================================
+
+    renderer.save(&path)?;
+
+    // =====================================================
+    // RETOUR
+    // =====================================================
+
+    Ok(
+        path
+            .to_string_lossy()
+            .to_string()
     )
 }

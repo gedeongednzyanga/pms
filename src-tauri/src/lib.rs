@@ -118,6 +118,7 @@ pub fn run() {
             commands::report_cmd::export_transfers_report_pdf,
             commands::report_cmd::export_releases_report_pdf,
             commands::report_cmd::export_plaintes_report_pdf,
+            commands::report_cmd::export_inmate_fiche_pdf,
 
             // DASHBOARD
             commands::dashboard::get_dashboard_stats_cmd,
