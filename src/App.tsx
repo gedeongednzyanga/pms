@@ -135,6 +135,7 @@ import Login from "./pages/login";
 
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import { AuthProvider } from "./services/AuthContext";
+import Plaintes from "./pages/plainte";
 
 function App() {
   return (
@@ -202,8 +203,14 @@ function App() {
               />
 
               {/* =========================
-                  LIBERATIONS ET TRANSFERTS
+                  PLAINTES, LIBERATIONS ET TRANSFERTS
               ========================== */}
+
+              <Route
+                path="/plaintes"
+                element={<Plaintes />}
+              />
+
 
               <Route
                 path="/releases"

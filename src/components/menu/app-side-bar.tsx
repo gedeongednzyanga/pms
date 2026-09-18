@@ -12,6 +12,7 @@ import {
   IconTools,
   IconUser,
   IconUsers,
+  IconMessageReport,
 } from "@tabler/icons-react";
 
 import {
@@ -48,6 +49,11 @@ const mainMenus: MenuItem[] = [
     label: "Dashboard",
     icon: IconDashboard,
     path: "/dashboard",
+  },
+  {
+    label: "Plaintes",
+    icon: IconMessageReport,
+    path: "/plaintes",
   },
   {
     label: "Détenus",

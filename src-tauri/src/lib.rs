@@ -107,6 +107,11 @@ pub fn run() {
             commands::movement_cmd::update_transfer_cmd,
             commands::movement_cmd::delete_transfer_cmd,
 
+            // PLAINTES 
+            commands::plainte_smd::create_plainte_cmd,
+            commands::plainte_smd::update_plainte_cmd,
+            commands::plainte_smd::get_plaintes_cmd,
+
             // RAPPORTS PDF
             commands::report_cmd::export_prisoners_report_pdf,
             commands::report_cmd::export_transfers_report_pdf,

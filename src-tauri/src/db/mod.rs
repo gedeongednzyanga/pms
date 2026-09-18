@@ -6,3 +6,4 @@ pub mod inmates;
 pub mod dashboards;
 pub mod movements;
 pub mod reports;
+pub mod plaintes;

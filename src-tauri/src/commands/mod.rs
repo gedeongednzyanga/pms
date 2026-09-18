@@ -6,3 +6,4 @@ pub mod inmate_cmd;
 pub mod dashboard;
 pub mod movement_cmd;
 pub mod report_cmd;
+pub mod plainte_smd;

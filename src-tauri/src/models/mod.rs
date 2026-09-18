@@ -6,3 +6,4 @@ pub mod cellule;
 pub mod inmate;
 pub mod dashboard;
 pub mod movements;
+pub mod plainte;

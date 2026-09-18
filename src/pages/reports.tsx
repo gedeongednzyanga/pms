@@ -10,6 +10,8 @@ import {
 } from "@tabler/icons-react";
 import { Button, Card, Group, Paper, Stack, Text, ThemeIcon, Title } from "@mantine/core";
 import { toast } from "sonner";
+import PdfPreview from "../components/preview-pdf";
+import { X } from "lucide-react";
 
 type Report = {
   id: "prisoners" | "transfers" | "releases";
@@ -53,12 +55,14 @@ function errorMessage(error: unknown): string {
 
 export default function Reports() {
   const [generating, setGenerating] = useState<Report["id"] | null>(null);
+  const [pdfFile, setPdfFile] = useState<string | null>(null);
 
   const generate = async (report: Report) => {
     setGenerating(report.id);
     try {
       const path = await invoke<string>(report.command);
       toast.success("Rapport PDF généré.", { description: path });
+      setPdfFile(path ?? "");
 
       try {
         await openPath(path);
@@ -123,6 +127,30 @@ export default function Reports() {
           );
         })}
       </div>
+
+      {pdfFile && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+              <div className="flex h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-sm bg-card shadow-xl">
+                  <div className="flex items-center justify-between border-b border-border px-5 py-3">
+                      <div>
+                          <h2 className="text-sm font-semibold">Aperçu du rapport des paiements</h2>
+                          <p className="text-[13px] text-muted-foreground">
+                              Vérifiez le document avant impression.
+                          </p>
+                      </div>
+                      <button
+                          onClick={() => setPdfFile(null)}
+                          className="text-muted-foreground hover:text-red-700"
+                      >
+                          <X className="h-4 w-4" />
+                      </button>
+                  </div>
+                  <div className="flex-1 overflow-hidden p-4">
+                      <PdfPreview file={pdfFile} />
+                  </div>
+              </div>
+          </div>
+      )}
     </div>
   );
 }
