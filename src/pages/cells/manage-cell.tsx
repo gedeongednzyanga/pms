@@ -18,6 +18,7 @@ import {
   Title,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
+import { useNavigate } from "react-router";
 
 interface Prison {
   id: string;
@@ -61,6 +62,7 @@ export default function ManageCell({
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(false);
   const [error, setError] = useState("");
+  const navigate = useNavigate();
 
   const resetForm = () => {
     setPrisonId(null);
@@ -333,7 +335,7 @@ export default function ManageCell({
           <Button
             variant="default"
             leftSection={<IconX size={17} />}
-            onClick={() => {oncancel; navigation.back()}}
+            onClick={() => { navigate('/cells')}}
             disabled={loading}
           >
             Annuler

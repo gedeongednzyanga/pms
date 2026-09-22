@@ -37,7 +37,7 @@ impl PdfHeader {
         }
 
         // =========================
-        // INFORMATIONS ECOLE
+        // INFORMATIONS ENTREPRISE
         // =========================
 
         let text_x = 45.0;

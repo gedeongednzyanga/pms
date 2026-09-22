@@ -32,7 +32,7 @@ tokio = { version = "1.49.0", features = ["macros", "rt-multi-thread"] }
 chrono = { version = "0.4.44", features = ["serde"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 tauri-plugin-fs = "2.5.1"
-printpdf = { version = "0.8", features = ["png"] }
+printpdf = { version = "0.8", features = ["png", "jpeg"] }
 image = "0.25"
 dirs = "6"
 base64 = "0.22"

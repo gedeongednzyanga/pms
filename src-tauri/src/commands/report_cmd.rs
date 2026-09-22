@@ -228,6 +228,7 @@ pub async fn export_plaintes_report_pdf(
     )
 }
 
+
 #[tauri::command]
 pub async fn export_inmate_fiche_pdf(
     app: AppHandle,
@@ -245,56 +246,16 @@ pub async fn export_inmate_fiche_pdf(
     )
     .await
     .map_err(|e| {
-        format!(
-            "Erreur récupération détenu : {}",
-            e
-        )
+        format!("Erreur récupération détenu : {}", e)
     })?;
 
-    // =====================================================
-    // HEADER
-    // =====================================================
-
-    let header = PdfHeader {
-        school_name:
-            "SYSTÈME DE GESTION PÉNITENTIAIRE".into(),
-
-        address:
-            "Fiche individuelle du détenu".into(),
-
-        phone:
-            "".into(),
-
-        email:
-            "".into(),
-
-        logo:
-            None,
-    };
-
-    // =====================================================
-    // FOOTER
-    // =====================================================
-
-    let footer = PdfFooter {
-        company_name:
-            "PMS — Gestion pénitentiaire".into(),
-
-        generated_date:
-            Local::now()
-                .format("%d/%m/%Y")
-                .to_string(),
-
-        show_page_number:
-            true,
-    };
 
     // =====================================================
     // RENDERER
     // =====================================================
 
     let mut renderer =
-        PdfRenderer::new_landscape(
+        PdfRenderer::new_portrait(
             &app,
             "Fiche détenu",
         )?;
@@ -303,10 +264,8 @@ pub async fn export_inmate_fiche_pdf(
     // LAYOUT
     // =====================================================
 
-    renderer.pdf.set_layout(
-        header,
-        footer,
-    );
+
+    renderer.pdf.without_layout();
 
     // =====================================================
     // RAPPORT
@@ -315,7 +274,7 @@ pub async fn export_inmate_fiche_pdf(
     renderer.render(
         InmateFicheReport {
             inmate,
-        }
+        },
     )?;
 
     // =====================================================
@@ -325,8 +284,7 @@ pub async fn export_inmate_fiche_pdf(
     let filename = format!(
         "fiche_detenu_{}_{}.pdf",
         inmate_id,
-        Local::now()
-            .format("%Y%m%d_%H%M%S"),
+        Local::now().format("%Y%m%d_%H%M%S"),
     );
 
     // =====================================================
@@ -342,10 +300,6 @@ pub async fn export_inmate_fiche_pdf(
     // =====================================================
 
     renderer.save(&path)?;
-
-    // =====================================================
-    // RETOUR
-    // =====================================================
 
     Ok(
         path

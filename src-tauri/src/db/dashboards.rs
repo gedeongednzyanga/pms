@@ -34,9 +34,7 @@ pub async fn get_dashboard_stats(
     let total_inmates: i64 = sqlx::query_scalar(
         r#"
         SELECT COUNT(*)
-        FROM inmates i
-        LEFT JOIN releases r ON r.inmate_id = i.id
-        WHERE r.id IS NULL
+        FROM inmates 
         "#
     )
     .fetch_one(pool)
@@ -48,9 +46,7 @@ pub async fn get_dashboard_stats(
         r#"
         SELECT COUNT(*)
         FROM inmates i
-        LEFT JOIN releases r ON r.inmate_id = i.id
-        WHERE r.id IS NULL
-          AND LOWER(i.sex) IN ('male', 'homme', 'masculin')
+        WHERE i.sex IN ('Male', 'homme', 'masculin')
         "#
     )
     .fetch_one(pool)
@@ -62,9 +58,7 @@ pub async fn get_dashboard_stats(
         r#"
         SELECT COUNT(*)
         FROM inmates i
-        LEFT JOIN releases r ON r.inmate_id = i.id
-        WHERE r.id IS NULL
-          AND LOWER(i.sex) IN ('female', 'femme', 'féminin')
+        WHERE i.sex IN ('Female', 'femme', 'féminin')
         "#
     )
     .fetch_one(pool)
