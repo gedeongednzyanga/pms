@@ -4,6 +4,7 @@ use sqlx::FromRow;
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct Plainte {
     pub id: String,
+    pub plaignant: String,
     pub objet: String,
     pub description: String,
     pub date_faits: String,
@@ -15,6 +16,7 @@ pub struct Plainte {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlainteInput {
+    pub plaignant: Option<String>,
     pub objet: Option<String>,
     pub description: Option<String>,
     pub date_faits: Option<String>,

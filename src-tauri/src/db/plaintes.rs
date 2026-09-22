@@ -12,6 +12,7 @@ pub async fn get_plainte_by_id(
         r#"
         SELECT
             id,
+            plaignant,
             objet,
             description,
             date_faits,
@@ -35,6 +36,11 @@ pub async fn create_plainte(
     data: PlainteInput,
 ) -> Result<Plainte, String> {
     let id = Uuid::new_v4().to_string();
+
+    let plaignant = data.plaignant
+        .as_deref()
+        .unwrap_or("")
+        .trim();
 
     let objet = data.objet
         .as_deref()
@@ -62,6 +68,10 @@ pub async fn create_plainte(
     // ============================================================
     // VALIDATIONS
     // ============================================================
+
+    if plaignant.is_empty(){
+        return Err("Le nom du plaignant est obligatoire".into());
+    }
 
     if objet.is_empty() {
         return Err("L'objet est obligatoire".into());
@@ -100,6 +110,7 @@ pub async fn create_plainte(
         r#"
         INSERT INTO plaintes (
             id,
+            plaignant,
             objet,
             description,
             date_faits,
@@ -108,10 +119,11 @@ pub async fn create_plainte(
             created_at,
             updated_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         "#,
     )
     .bind(&id)
+    .bind(plaignant)
     .bind(objet)
     .bind(description)
     .bind(date_faits)
@@ -138,6 +150,11 @@ pub async fn update_plainte(
     // ============================================================
     // VALEURS
     // ============================================================
+
+    let plaignant = data.plaignant
+        .as_deref()
+        .unwrap_or("")
+        .trim();
 
     let objet = data
         .objet
@@ -172,6 +189,10 @@ pub async fn update_plainte(
     // ============================================================
     // VALIDATIONS
     // ============================================================
+
+    if plaignant.is_empty(){
+        return Err("Le nom du plaignant est obligatoire".into());
+    }
 
     if objet.is_empty() {
         return Err("L'objet est obligatoire".into());
@@ -234,6 +255,7 @@ pub async fn update_plainte(
         r#"
         UPDATE plaintes
         SET
+            plaignant = ?,
             objet = ?,
             description = ?,
             date_faits = ?,
@@ -243,6 +265,7 @@ pub async fn update_plainte(
         WHERE id = ?
         "#,
     )
+    .bind(plaignant)
     .bind(objet)
     .bind(description)
     .bind(date_faits)
@@ -273,6 +296,7 @@ pub async fn get_plaintes(
         r#"
         SELECT
             id,
+            plaignant,
             objet,
             description,
             date_faits,

@@ -58,12 +58,9 @@ export default function PdfPreview({file}:Props){
 
     },[file]);
 
-
-
     if(!url){
         return <div>Chargement du PDF...</div>
     }
-
 
     return (
         <iframe

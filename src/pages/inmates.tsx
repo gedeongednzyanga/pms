@@ -513,7 +513,7 @@ export default function Inmates() {
             <Table.Tbody>
               {loading ? (
                 <Table.Tr>
-                  <Table.Td colSpan={8}>
+                  <Table.Td colSpan={9}>
                     <Center py="xl">
                       <div className="flex items-center gap-3">
                         <Loader size="sm" />
@@ -545,7 +545,7 @@ export default function Inmates() {
                 ))
               ) : (
                 <Table.Tr>
-                  <Table.Td colSpan={8}>
+                  <Table.Td colSpan={9}>
                     <div className="flex flex-col items-center justify-center py-12">
                       <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100">
                         <IconUser

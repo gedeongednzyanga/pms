@@ -6,6 +6,7 @@ import {
   IconPlus,
   IconSearch,
   IconTrash,
+  IconUser,
 } from "@tabler/icons-react";
 import {
   ActionIcon,
@@ -32,6 +33,7 @@ import { toast } from "sonner";
 
 type Plainte = {
     id: string;
+    plaignant: string;
     objet: string;
     description: string;
     date_faits: string;
@@ -42,6 +44,7 @@ type Plainte = {
 };
 
 type PlainteForm = {
+    plaignant: string;
     objet: string;
     description: string;
     date_faits: string;
@@ -50,6 +53,7 @@ type PlainteForm = {
 };
 
 const emptyForm: PlainteForm = {
+    plaignant: "",
     objet: "",
     description: "",
     date_faits: "",
@@ -73,8 +77,11 @@ const statutLabel = (statut: string) => {
         case "EN_COURS":
         return "En cours";
 
-        case "TRAITEE":
-        return "Traitée";
+        case "TRANSMISE":
+        return "Transmise";
+
+        case "CLOTUREE":
+            return "Clôturée";
 
         case "CLASSEE":
         return "Classée";
@@ -137,6 +144,7 @@ export default function Plaintes() {
 
         return plaintes.filter((plainte) =>
         [
+            plainte.plaignant,
             plainte.objet,
             plainte.description,
             plainte.date_faits,
@@ -172,11 +180,12 @@ export default function Plaintes() {
         setEditing(plainte);
 
         setForm({
-        objet: plainte.objet,
-        description: plainte.description,
-        date_faits: plainte.date_faits,
-        lieu_faits: plainte.lieu_faits,
-        statut: plainte.statut,
+            plaignant: plainte.plaignant,
+            objet: plainte.objet,
+            description: plainte.description,
+            date_faits: plainte.date_faits,
+            lieu_faits: plainte.lieu_faits,
+            statut: plainte.statut,
         });
 
         setOpened(true);
@@ -187,10 +196,15 @@ export default function Plaintes() {
     // ============================================================
 
     const save = async () => {
+        const plaignant = form.plaignant;
         const objet = form.objet.trim();
         const description = form.description.trim();
         const date_faits = form.date_faits.trim();
         const lieu_faits = form.lieu_faits.trim();
+
+        if(!plaignant){
+            toast.error("Veuillez renseigner le nom du plaignant.")
+        }
 
         if (!objet) {
             toast.error("Veuillez renseigner l'objet de la plainte.");
@@ -221,6 +235,7 @@ export default function Plaintes() {
 
         try {
             const data = {
+                plaignant: plaignant,
                 objet: objet,
                 description,
                 date_faits,
@@ -320,17 +335,17 @@ export default function Plaintes() {
             <Card.Section withBorder inheritPadding py="md">
             <Group justify="space-between">
                 <Text fw={600}>
-                Liste des plaintes
+                    Liste des plaintes
                 </Text>
 
                 <TextInput
-                w={300}
-                placeholder="Rechercher…"
-                value={search}
-                onChange={(event) =>
-                    setSearch(event.currentTarget.value)
-                }
-                leftSection={<IconSearch size={16} />}
+                    w={300}
+                    placeholder="Rechercher…"
+                    value={search}
+                    onChange={(event) =>
+                        setSearch(event.currentTarget.value)
+                    }
+                    leftSection={<IconSearch size={16} />}
                 />
             </Group>
             </Card.Section>
@@ -352,6 +367,7 @@ export default function Plaintes() {
                 >
                 <Table.Thead>
                     <Table.Tr>
+                    <Table.Th>Plaignant</Table.Th>
                     <Table.Th>Objet</Table.Th>
                     <Table.Th>Date des faits</Table.Th>
                     <Table.Th>Lieu</Table.Th>
@@ -366,7 +382,7 @@ export default function Plaintes() {
                 <Table.Tbody>
                     {filteredPlaintes.length === 0 ? (
                     <Table.Tr>
-                        <Table.Td colSpan={6}>
+                        <Table.Td colSpan={7}>
                         <Text
                             ta="center"
                             c="dimmed"
@@ -379,25 +395,25 @@ export default function Plaintes() {
                     ) : (
                     filteredPlaintes.map((plainte) => (
                         <Table.Tr key={plainte.id}>
-                        <Table.Td fw={500}>
-                            {plainte.objet}
-                        </Table.Td>
-
-                        <Table.Td>
-                            {formatDate(plainte.date_faits)}
-                        </Table.Td>
-
-                        <Table.Td>
-                            {plainte.lieu_faits}
-                        </Table.Td>
-
                         <Table.Td>
                             <Text
-                            size="sm"
-                            lineClamp={2}
-                            maw={320}
+                                size="sm"
+                                lineClamp={2}
+                                maw={320}
                             >
-                            {plainte.description}
+                                {plainte.plaignant}
+                            </Text>
+                        </Table.Td>
+                        <Table.Td fw={500}>{plainte.objet}</Table.Td>
+                        <Table.Td>{formatDate(plainte.date_faits)}</Table.Td>
+                        <Table.Td>{plainte.lieu_faits}</Table.Td>
+                        <Table.Td>
+                            <Text
+                                size="sm"
+                                lineClamp={2}
+                                maw={320}
+                                >
+                                {plainte.description}
                             </Text>
                         </Table.Td>
 
@@ -450,138 +466,151 @@ export default function Plaintes() {
 
         <Modal
             opened={opened}
-            onClose={() =>
-            !saving && setOpened(false)
-            }
-            title={
-            editing
-                ? "Modifier la plainte"
-                : "Nouvelle plainte"
-            }
+            onClose={() => !saving && setOpened(false)}
+            title={ editing ? "Modifier la plainte" : "Nouvelle plainte"}
             centered
             size="lg"
         >
             <Stack>
-            <TextInput
-                label="Objet de la plainte"
-                placeholder="Ex. Violence, agression, vol, menace…"
-                required
-                value={form.objet}
-                onChange={(event) =>
-                setForm({
-                    ...form,
-                    objet: event.currentTarget.value,
-                })
-                }
-                leftSection={
-                <IconFileDescription size={16} />
-                }
-            />
-
-            <Textarea
-                label="Description des faits"
-                placeholder="Décrivez les faits de manière détaillée…"
-                required
-                minRows={5}
-                autosize
-                maxRows={10}
-                value={form.description}
-                onChange={(event) =>
-                setForm({
-                    ...form,
-                    description:
-                    event.currentTarget.value,
-                })
-                }
-            />
-
-            <Group grow>
-                <DateInput
-                label="Date des faits"
-                required
-                value={
-                    form.date_faits
-                    ? new Date(form.date_faits)
-                    : null
-                }
-                onChange={(date) =>
+                <TextInput
+                    label="Noms du plaignant"
+                    placeholder="Nom complet…"
+                    required
+                    value={form.plaignant}
+                    onChange={(event) =>
                     setForm({
-                    ...form,
-                    date_faits: date
-                        ? dayjs(date).format(
-                            "YYYY-MM-DD"
-                        )
-                        : "",
+                        ...form,
+                        plaignant: event.currentTarget.value,
                     })
-                }
-                valueFormat="DD/MM/YYYY"
-                clearable
+                    }
+                    leftSection={
+                    <IconUser size={16} />
+                    }
+                />
+                <TextInput
+                    label="Objet de la plainte"
+                    placeholder="Ex. Violence, agression, vol, menace…"
+                    required
+                    value={form.objet}
+                    onChange={(event) =>
+                    setForm({
+                        ...form,
+                        objet: event.currentTarget.value,
+                    })
+                    }
+                    leftSection={
+                    <IconFileDescription size={16} />
+                    }
                 />
 
-                <TextInput
-                label="Lieu des faits"
-                placeholder="Ex. Q. Mabanga Nord…"
-                required
-                value={form.lieu_faits}
-                onChange={(event) =>
+                <Textarea
+                    label="Description des faits"
+                    placeholder="Décrivez les faits de manière détaillée…"
+                    required
+                    minRows={5}
+                    autosize
+                    maxRows={10}
+                    value={form.description}
+                    onChange={(event) =>
                     setForm({
-                    ...form,
-                    lieu_faits:
+                        ...form,
+                        description:
                         event.currentTarget.value,
                     })
-                }
+                    }
                 />
-            </Group>
 
-            <Select
-                label="Statut"
-                required
-                data={[
-                {
-                    value: "ENREGISTREE",
-                    label: "Enregistrée",
-                },
-                {
-                    value: "EN_COURS",
-                    label: "En cours",
-                },
-                {
-                    value: "TRAITEE",
-                    label: "Traitée",
-                },
-                {
-                    value: "CLASSEE",
-                    label: "Classée",
-                },
-                ]}
-                value={form.statut}
-                onChange={(value) =>
-                setForm({
-                    ...form,
-                    statut:
-                    value ?? "ENREGISTREE",
-                })
-                }
-            />
+                <Group grow>
+                    <DateInput
+                    label="Date des faits"
+                    required
+                    value={
+                        form.date_faits
+                        ? new Date(form.date_faits)
+                        : null
+                    }
+                    onChange={(date) =>
+                        setForm({
+                        ...form,
+                        date_faits: date
+                            ? dayjs(date).format(
+                                "YYYY-MM-DD"
+                            )
+                            : "",
+                        })
+                    }
+                    valueFormat="DD/MM/YYYY"
+                    clearable
+                    />
 
-            <Group justify="flex-end" mt="sm">
-                <Button
-                variant="default"
-                onClick={() => setOpened(false)}
-                disabled={saving}
-                >
-                Annuler
-                </Button>
+                    <TextInput
+                    label="Lieu des faits"
+                    placeholder="Ex. Q. Mabanga Nord…"
+                    required
+                    value={form.lieu_faits}
+                    onChange={(event) =>
+                        setForm({
+                        ...form,
+                        lieu_faits:
+                            event.currentTarget.value,
+                        })
+                    }
+                    />
+                </Group>
 
-                <Button
-                onClick={save}
-                loading={saving}
-                >
-                {editing
-                    ? "Modifier"
-                    : "Enregistrer"}
-                </Button>
-            </Group>
+                <Select
+                    label="Statut"
+                    required
+                    data={[
+                        {
+                            value: "ENREGISTREE",
+                            label: "Enregistrée",
+                        },
+                        {
+                            value: "EN_COURS",
+                            label: "En cours",
+                        },
+                        {
+                            value: "TRANSMISE",
+                            label: "Transmise",
+                        },
+                        {
+                            value: "CLASSEE",
+                            label: "Classée",
+                        },
+                        {
+                            value: "CLOTUREE",
+                            label: "Clôturée"
+                        }
+                    ]}
+                    value={form.statut}
+                    onChange={(value) =>
+                    setForm({
+                        ...form,
+                        statut:
+                        value ?? "ENREGISTREE",
+                    })
+                    }
+                />
+
+                <Group justify="flex-end" mt="sm">
+                    <Button
+                    variant="default"
+                    onClick={() => setOpened(false)}
+                    disabled={saving}
+                    >
+                    Annuler
+                    </Button>
+
+                    <Button
+                    onClick={save}
+                    loading={saving}
+                    >
+                    {editing
+                        ? "Modifier"
+                        : "Enregistrer"}
+                    </Button>
+                </Group>
             </Stack>
         </Modal>
         </div>

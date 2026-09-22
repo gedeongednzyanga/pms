@@ -205,7 +205,7 @@ export default function Reports() {
       {pdfFile && (
         <div className="fixed inset-0 z-9999 flex items-center justify-center bg-black/60 p-3 sm:p-5">
           {/* CONTENEUR MODAL */}
-          <div className="flex h-[95vh] w-full max-w-6xl flex-col overflow-hidden rounded-lg bg-white shadow-2xl ">
+          <div className="flex h-[80vh] w-full max-w-3xl flex-col overflow-hidden rounded-lg bg-white shadow-2xl ">
 
             {/* HEADER */}
             <div className="flex shrink-0 items-center justify-between border-b px-5 py-3 ">
@@ -230,7 +230,7 @@ export default function Reports() {
             </div>
 
             {/* PDF */}
-            <div className="min-h-0 flex-1 bg-slate-100 p-2 dark:bg-slate-950 sm:p-4">
+            <div className="min-h-0 flex-1 bg-slate-100 p-2 sm:p-4">
               <div className="h-full w-full overflow-hidden rounded-md bg-white shadow-sm">
                 <PdfPreview file={pdfFile} />
               </div>

@@ -1,6 +1,7 @@
 CREATE TABLE IF NOT EXISTS plaintes (
     id TEXT PRIMARY KEY,
 
+    plaignant TEXT NOT NULL,
     objet TEXT NOT NULL,
     description TEXT NOT NULL,
 
