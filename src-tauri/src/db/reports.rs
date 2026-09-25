@@ -37,8 +37,10 @@ pub async fn get_prisoners_report_rows(
     .map_err(|error| error.to_string())
 }
 
-pub async fn get_plaintes_report_rows(
+pub async fn get_plaintes_report_rows_by_date_range(
     pool: &SqlitePool,
+    date_debut: &str,
+    date_fin: &str,
 ) -> Result<Vec<Plainte>, String> {
     sqlx::query_as::<_, Plainte>(
         r#"
@@ -52,18 +54,52 @@ pub async fn get_plaintes_report_rows(
             created_at,
             updated_at
         FROM plaintes
+        WHERE date_faits >= ?1
+          AND date_faits <= ?2
         ORDER BY date_faits DESC, created_at DESC
         "#,
     )
+    .bind(date_debut)
+    .bind(date_fin)
     .fetch_all(pool)
     .await
     .map_err(|e| {
         format!(
-            "Erreur lors de la récupération des plaintes pour le rapport : {}",
+            "Erreur lors de la récupération des plaintes pour la période {} - {} : {}",
+            date_debut,
+            date_fin,
             e
         )
     })
 }
+
+// pub async fn get_plaintes_report_rows(
+//     pool: &SqlitePool,
+// ) -> Result<Vec<Plainte>, String> {
+//     sqlx::query_as::<_, Plainte>(
+//         r#"
+//         SELECT
+//             id,
+//             objet,
+//             description,
+//             date_faits,
+//             lieu_faits,
+//             statut,
+//             created_at,
+//             updated_at
+//         FROM plaintes
+//         ORDER BY date_faits DESC, created_at DESC
+//         "#,
+//     )
+//     .fetch_all(pool)
+//     .await
+//     .map_err(|e| {
+//         format!(
+//             "Erreur lors de la récupération des plaintes pour le rapport : {}",
+//             e
+//         )
+//     })
+// }
 
 
 pub async fn get_inmate_for_fiche(

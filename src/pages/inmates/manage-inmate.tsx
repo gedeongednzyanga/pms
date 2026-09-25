@@ -1374,7 +1374,7 @@ export default function ManageInmate() {
                   }}
                 >
                   <DatePickerInput
-                    label="Date d'incarcération"
+                    label="Date d'arrivé"
                     placeholder="Sélectionner une date"
                     required
                     value={
@@ -1407,7 +1407,7 @@ export default function ManageInmate() {
                   }}
                 >
                   <DatePickerInput
-                    label="Date de libération prévue"
+                    label="Date de sortie"
                     placeholder="Optionnel"
                     value={
                       form.date_to

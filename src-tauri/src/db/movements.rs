@@ -312,3 +312,43 @@ pub async fn delete_transfer(pool: &SqlitePool, id: &str) -> Result<(), String> 
     }
     Ok(())
 }
+
+// Libérations
+pub async fn get_releases_by_date_range(
+    pool: &SqlitePool,
+    date_debut: &str,
+    date_fin: &str,
+) -> Result<Vec<Release>, String> {
+    let query = format!(
+        "{} WHERE DATE(r.release_date) BETWEEN DATE(?) AND DATE(?) \
+         ORDER BY r.release_date DESC, r.created_at DESC",
+        RELEASE_SELECT
+    );
+
+    sqlx::query_as::<_, Release>(&query)
+        .bind(date_debut)
+        .bind(date_fin)
+        .fetch_all(pool)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+// Transferts
+pub async fn get_transfers_by_date_range(
+    pool: &SqlitePool,
+    date_debut: &str,
+    date_fin: &str,
+) -> Result<Vec<Transfer>, String> {
+    let query = format!(
+        "{} WHERE DATE(t.transfer_date) BETWEEN DATE(?) AND DATE(?) \
+         ORDER BY t.transfer_date DESC, t.created_at DESC",
+        TRANSFER_SELECT
+    );
+
+    sqlx::query_as::<_, Transfer>(&query)
+        .bind(date_debut)
+        .bind(date_fin)
+        .fetch_all(pool)
+        .await
+        .map_err(|error| error.to_string())
+}

@@ -76,7 +76,7 @@ export default function Login() {
 
                 <div>
                     <h1 className="text-lg font-semibold text-white">
-                    Gestion pénitentiaire
+                    DSR HQ
                     </h1>
 
                     <p className="text-xs text-slate-400">

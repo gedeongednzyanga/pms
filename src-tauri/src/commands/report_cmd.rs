@@ -46,6 +46,31 @@ fn save_report(
     Ok(path.to_string_lossy().to_string())
 }
 
+fn validate_date_range(
+    date_debut: &str,
+    date_fin: &str,
+) -> Result<(), String> {
+    let date_debut = date_debut.trim();
+    let date_fin = date_fin.trim();
+
+    if date_debut.is_empty() {
+        return Err("La date de début est obligatoire.".into());
+    }
+
+    if date_fin.is_empty() {
+        return Err("La date de fin est obligatoire.".into());
+    }
+
+    if date_debut > date_fin {
+        return Err(
+            "La date de début ne peut pas être supérieure à la date de fin."
+                .into(),
+        );
+    }
+
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn export_prisoners_report_pdf(
     app: AppHandle,
@@ -94,8 +119,19 @@ pub async fn export_prisoners_report_pdf(
 pub async fn export_transfers_report_pdf(
     app: AppHandle,
     state: State<'_, AppState>,
+    date_debut: String,
+    date_fin: String,
 ) -> Result<String, String> {
-    let transfers = movements::get_transfers(&state.db).await?;
+
+    validate_date_range(&date_debut, &date_fin)?;
+
+    let transfers = movements::get_transfers_by_date_range(
+        &state.db,
+        &date_debut,
+        &date_fin,
+    )
+    .await?;
+
     let rows = transfers
         .iter()
         .enumerate()
@@ -117,7 +153,13 @@ pub async fn export_transfers_report_pdf(
         "liste_transferts",
         PmsListReport {
             title: "LISTE DES TRANSFERTS".into(),
-            description: "Historique des transferts entre les cellules et les prisons.".into(),
+
+            description: format!(
+                "Historique des transferts du {} au {}.",
+                date_debut,
+                date_fin
+            ),
+
             columns: vec![
                 centered_column("N°", 10.0),
                 left_column("Détenue", 45.0),
@@ -126,18 +168,74 @@ pub async fn export_transfers_report_pdf(
                 left_column("Destination", 52.0),
                 left_column("Motif", 48.0),
             ],
+
             rows,
-            empty_message: "Aucun transfert enregistré".into(),
+
+            empty_message: "Aucun transfert enregistré pour cette période."
+                .into(),
         },
     )
 }
+
+// #[tauri::command]
+// pub async fn export_transfers_report_pdf(
+//     app: AppHandle,
+//     state: State<'_, AppState>,
+// ) -> Result<String, String> {
+//     let transfers = movements::get_transfers(&state.db).await?;
+//     let rows = transfers
+//         .iter()
+//         .enumerate()
+//         .map(|(index, transfer)| {
+//             vec![
+//                 (index + 1).to_string(),
+//                 transfer.inmate_name.clone(),
+//                 transfer.transfer_date.clone(),
+//                 transfer.from_cellule_name.clone(),
+//                 transfer.to_cellule_name.clone(),
+//                 transfer.reason.clone(),
+//             ]
+//         })
+//         .collect();
+
+//     save_report(
+//         &app,
+//         "Liste des transferts",
+//         "liste_transferts",
+//         PmsListReport {
+//             title: "LISTE DES TRANSFERTS".into(),
+//             description: "Historique des transferts entre les cellules et les prisons.".into(),
+//             columns: vec![
+//                 centered_column("N°", 10.0),
+//                 left_column("Détenue", 45.0),
+//                 centered_column("Date", 28.0),
+//                 left_column("Origine", 52.0),
+//                 left_column("Destination", 52.0),
+//                 left_column("Motif", 48.0),
+//             ],
+//             rows,
+//             empty_message: "Aucun transfert enregistré".into(),
+//         },
+//     )
+// }
 
 #[tauri::command]
 pub async fn export_releases_report_pdf(
     app: AppHandle,
     state: State<'_, AppState>,
+    date_debut: String,
+    date_fin: String,
 ) -> Result<String, String> {
-    let releases = movements::get_releases(&state.db).await?;
+
+    validate_date_range(&date_debut, &date_fin)?;
+
+    let releases = movements::get_releases_by_date_range(
+        &state.db,
+        &date_debut,
+        &date_fin,
+    )
+    .await?;
+
     let rows = releases
         .iter()
         .enumerate()
@@ -147,7 +245,10 @@ pub async fn export_releases_report_pdf(
                 release.inmate_name.clone(),
                 release.release_date.clone(),
                 release.reason.clone(),
-                release.notes.clone().unwrap_or_else(|| "—".into()),
+                release
+                    .notes
+                    .clone()
+                    .unwrap_or_else(|| "—".into()),
             ]
         })
         .collect();
@@ -158,7 +259,13 @@ pub async fn export_releases_report_pdf(
         "liste_liberations",
         PmsListReport {
             title: "LISTE DES LIBÉRATIONS".into(),
-            description: "Historique des libérations enregistrées.".into(),
+
+            description: format!(
+                "Historique des libérations du {} au {}.",
+                date_debut,
+                date_fin
+            ),
+
             columns: vec![
                 centered_column("N°", 10.0),
                 left_column("Détenue", 52.0),
@@ -166,11 +273,55 @@ pub async fn export_releases_report_pdf(
                 left_column("Motif", 70.0),
                 left_column("Notes", 70.0),
             ],
+
             rows,
-            empty_message: "Aucune libération enregistrée".into(),
+
+            empty_message:
+                "Aucune libération enregistrée pour cette période."
+                    .into(),
         },
     )
 }
+
+// #[tauri::command]
+// pub async fn export_releases_report_pdf(
+//     app: AppHandle,
+//     state: State<'_, AppState>,
+// ) -> Result<String, String> {
+//     let releases = movements::get_releases(&state.db).await?;
+//     let rows = releases
+//         .iter()
+//         .enumerate()
+//         .map(|(index, release)| {
+//             vec![
+//                 (index + 1).to_string(),
+//                 release.inmate_name.clone(),
+//                 release.release_date.clone(),
+//                 release.reason.clone(),
+//                 release.notes.clone().unwrap_or_else(|| "—".into()),
+//             ]
+//         })
+//         .collect();
+
+//     save_report(
+//         &app,
+//         "Liste des libérations",
+//         "liste_liberations",
+//         PmsListReport {
+//             title: "LISTE DES LIBÉRATIONS".into(),
+//             description: "Historique des libérations enregistrées.".into(),
+//             columns: vec![
+//                 centered_column("N°", 10.0),
+//                 left_column("Détenue", 52.0),
+//                 centered_column("Date", 30.0),
+//                 left_column("Motif", 70.0),
+//                 left_column("Notes", 70.0),
+//             ],
+//             rows,
+//             empty_message: "Aucune libération enregistrée".into(),
+//         },
+//     )
+// }
 
 fn format_statut_plainte(statut: &str) -> String {
     match statut {
@@ -187,8 +338,19 @@ fn format_statut_plainte(statut: &str) -> String {
 pub async fn export_plaintes_report_pdf(
     app: AppHandle,
     state: State<'_, AppState>,
+    date_debut: String,
+    date_fin: String,
 ) -> Result<String, String> {
-    let plaintes = reports::get_plaintes_report_rows(&state.db).await?;
+
+    validate_date_range(&date_debut, &date_fin)?;
+
+    let plaintes =
+        reports::get_plaintes_report_rows_by_date_range(
+            &state.db,
+            &date_debut,
+            &date_fin,
+        )
+        .await?;
 
     let rows = plaintes
         .iter()
@@ -211,9 +373,13 @@ pub async fn export_plaintes_report_pdf(
         "liste_plaintes",
         PmsListReport {
             title: "LISTE DES PLAINTES".into(),
-            description:
-                "Liste des plaintes et des faits signalés dans l'établissement pénitentiaire."
-                    .into(),
+
+            description: format!(
+                "Plaintes enregistrées du {} au {}.",
+                date_debut,
+                date_fin
+            ),
+
             columns: vec![
                 centered_column("N°", 9.0),
                 left_column("Objet", 42.0),
@@ -222,11 +388,60 @@ pub async fn export_plaintes_report_pdf(
                 centered_column("Statut", 32.0),
                 left_column("Description", 78.0),
             ],
+
             rows,
-            empty_message: "Aucune plainte enregistrée".into(),
+
+            empty_message:
+                "Aucune plainte enregistrée pour cette période."
+                    .into(),
         },
     )
 }
+
+// #[tauri::command]
+// pub async fn export_plaintes_report_pdf(
+//     app: AppHandle,
+//     state: State<'_, AppState>,
+// ) -> Result<String, String> {
+//     let plaintes = reports::get_plaintes_report_rows(&state.db).await?;
+
+//     let rows = plaintes
+//         .iter()
+//         .enumerate()
+//         .map(|(index, plainte)| {
+//             vec![
+//                 (index + 1).to_string(),
+//                 plainte.objet.clone(),
+//                 plainte.date_faits.clone(),
+//                 plainte.lieu_faits.clone(),
+//                 format_statut_plainte(&plainte.statut),
+//                 plainte.description.clone(),
+//             ]
+//         })
+//         .collect();
+
+//     save_report(
+//         &app,
+//         "Liste des plaintes",
+//         "liste_plaintes",
+//         PmsListReport {
+//             title: "LISTE DES PLAINTES".into(),
+//             description:
+//                 "Liste des plaintes et des faits signalés dans l'établissement pénitentiaire."
+//                     .into(),
+//             columns: vec![
+//                 centered_column("N°", 9.0),
+//                 left_column("Objet", 42.0),
+//                 centered_column("Date", 27.0),
+//                 left_column("Lieu des faits", 42.0),
+//                 centered_column("Statut", 32.0),
+//                 left_column("Description", 78.0),
+//             ],
+//             rows,
+//             empty_message: "Aucune plainte enregistrée".into(),
+//         },
+//     )
+// }
 
 
 #[tauri::command]

@@ -9,7 +9,6 @@ import {
   IconLogout,
   // IconReportAnalytics,
   IconSettings,
-  IconTools,
   IconUser,
   IconUsers,
   IconMessageReport,
@@ -131,11 +130,11 @@ const maintenanceMenus: MenuItem[] = [
     icon: IconUsers,
     path: "/users",
   },
-  {
-    label: "Informations système",
-    icon: IconTools,
-    path: "/system-info",
-  },
+  // {
+  //   label: "Informations système",
+  //   icon: IconTools,
+  //   path: "/system-info",
+  // },
 ];
 
 /* =========================
@@ -317,7 +316,7 @@ export function AppSidebar() {
             fw={600}
             className="truncate text-white"
           >
-            Gestion pénitentiaire
+            DSR HQ
           </Text>
 
           <Text

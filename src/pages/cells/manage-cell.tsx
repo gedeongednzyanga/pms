@@ -4,7 +4,6 @@ import {
   IconBuilding,
   IconCheck,
   IconDeviceFloppy,
-  IconX,
 } from "@tabler/icons-react";
 
 import {
@@ -19,6 +18,7 @@ import {
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useNavigate } from "react-router";
+import { ArrowLeft } from "lucide-react";
 
 interface Prison {
   id: string;
@@ -229,7 +229,7 @@ export default function ManageCell({
   }
 
   return (
-    <div className="flex w-full justify-center px-4 py-4">
+    <div className="flex w-full h-full items-center justify-center px-4 py-4">
       <Card
         shadow="sm"
         radius="md"
@@ -334,11 +334,11 @@ export default function ManageCell({
         <Group justify="flex-end" mt="xl">
           <Button
             variant="default"
-            leftSection={<IconX size={17} />}
+            leftSection={<ArrowLeft size={17} />}
             onClick={() => { navigate('/cells')}}
             disabled={loading}
           >
-            Annuler
+            Retour
           </Button>
 
           <Button
