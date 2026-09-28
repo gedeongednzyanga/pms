@@ -46,6 +46,7 @@ pub async fn get_plaintes_report_rows_by_date_range(
         r#"
         SELECT
             id,
+            plaignant,
             objet,
             description,
             date_faits,
