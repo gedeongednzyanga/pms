@@ -23,7 +23,7 @@ pub async fn get_prisoners_report_rows(
             i.dob,
             i.address,
             i.marital_status,
-            COALESCE(p.prison_name || ' — ', '') || COALESCE(c.code, c.cellule_name) AS cellule
+            COALESCE(p.prison_name || ' — ', '') || c.cellule_name AS cellule
         FROM inmates i
         INNER JOIN cellules c ON c.id = i.cellule_id
         LEFT JOIN prisons p ON p.id = c.prison_id
@@ -73,34 +73,6 @@ pub async fn get_plaintes_report_rows_by_date_range(
         )
     })
 }
-
-// pub async fn get_plaintes_report_rows(
-//     pool: &SqlitePool,
-// ) -> Result<Vec<Plainte>, String> {
-//     sqlx::query_as::<_, Plainte>(
-//         r#"
-//         SELECT
-//             id,
-//             objet,
-//             description,
-//             date_faits,
-//             lieu_faits,
-//             statut,
-//             created_at,
-//             updated_at
-//         FROM plaintes
-//         ORDER BY date_faits DESC, created_at DESC
-//         "#,
-//     )
-//     .fetch_all(pool)
-//     .await
-//     .map_err(|e| {
-//         format!(
-//             "Erreur lors de la récupération des plaintes pour le rapport : {}",
-//             e
-//         )
-//     })
-// }
 
 
 pub async fn get_inmate_for_fiche(

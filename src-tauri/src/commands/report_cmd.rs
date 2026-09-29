@@ -1,47 +1,66 @@
+use std::path::PathBuf;
+
 use chrono::Local;
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 
 use crate::{
     db::{movements, reports::{self, get_inmate_for_fiche}}, pdf::{
-        engine::{document::get_pdf_directory, renderer::PdfRenderer}, layouts::{footer::PdfFooter, header::PdfHeader}, reports::{fiche_inmate::InmateFicheReport, pms_reports::{PmsListReport, centered_column, left_column}},
+        engine::{document::get_pdf_directory, renderer::{PdfRenderer, PdfReport}}, layouts::{footer::PdfFooter, header::PdfHeader}, reports::{fiche_inmate::InmateFicheReport, pms_reports::{PmsListReport, centered_column, left_column}},
     }, state::AppState,
 };
 
-fn pdf_header() -> PdfHeader {
+fn resolve_logo_path(app: &AppHandle) -> Option<String> {
+    let mut candidates: Vec<PathBuf> = Vec::new();
+
+    if let Ok(resource_dir) = app.path().resource_dir() {
+        candidates.push(resource_dir.join("resources/images/logo_pms.png"));
+        candidates.push(resource_dir.join("images/logo_pms.png"));
+    }
+
+    candidates.push(PathBuf::from("resources/images/logo_pms.png"));
+    candidates.push(PathBuf::from("src-tauri/resources/images/logo_pms.png"));
+
+    candidates
+        .into_iter()
+        .find(|path| path.exists())
+        .map(|path| path.to_string_lossy().to_string())
+}
+
+fn build_header(app: &AppHandle) -> PdfHeader {
     PdfHeader {
-        school_name: "SYSTÈME DE GESTION PÉNITENTIAIRE".into(),
-        address: "Rapport administratif".into(),
+        school_name: "".into(), // à remplacer par le nom de ta structure
+        address: "".into(),
         phone: "".into(),
         email: "".into(),
-        logo: None,
+        logo: resolve_logo_path(app),
     }
 }
 
-fn pdf_footer() -> PdfFooter {
+fn build_footer() -> PdfFooter {
     PdfFooter {
-        company_name: "PMS — Gestion pénitentiaire".into(),
+        company_name: "DSR HQ".into(),
         generated_date: Local::now().format("%d/%m/%Y").to_string(),
         show_page_number: true,
     }
 }
 
-fn save_report(
+fn save_report<R: PdfReport>(
     app: &AppHandle,
-    title: &str,
-    filename_prefix: &str,
-    report: PmsListReport,
+    window_title: &str,
+    file_prefix: &str,
+    report: R,
 ) -> Result<String, String> {
-    let mut renderer = PdfRenderer::new_landscape(app, title)?;
-    renderer.pdf.set_layout(pdf_header(), pdf_footer());
+    let mut renderer = PdfRenderer::new_landscape(app, window_title)?;
+    renderer.pdf.set_layout(build_header(app), build_footer());
     renderer.render(report)?;
 
     let filename = format!(
         "{}_{}.pdf",
-        filename_prefix,
-        Local::now().format("%Y%m%d_%H%M%S"),
+        file_prefix,
+        Local::now().format("%Y%m%d_%H%M%S")
     );
     let path = get_pdf_directory(app)?.join(filename);
-    renderer.save(&path)?;
+    renderer.save(&path)?; // consomme le renderer, c'est voulu
 
     Ok(path.to_string_lossy().to_string())
 }
@@ -177,48 +196,6 @@ pub async fn export_transfers_report_pdf(
     )
 }
 
-// #[tauri::command]
-// pub async fn export_transfers_report_pdf(
-//     app: AppHandle,
-//     state: State<'_, AppState>,
-// ) -> Result<String, String> {
-//     let transfers = movements::get_transfers(&state.db).await?;
-//     let rows = transfers
-//         .iter()
-//         .enumerate()
-//         .map(|(index, transfer)| {
-//             vec![
-//                 (index + 1).to_string(),
-//                 transfer.inmate_name.clone(),
-//                 transfer.transfer_date.clone(),
-//                 transfer.from_cellule_name.clone(),
-//                 transfer.to_cellule_name.clone(),
-//                 transfer.reason.clone(),
-//             ]
-//         })
-//         .collect();
-
-//     save_report(
-//         &app,
-//         "Liste des transferts",
-//         "liste_transferts",
-//         PmsListReport {
-//             title: "LISTE DES TRANSFERTS".into(),
-//             description: "Historique des transferts entre les cellules et les prisons.".into(),
-//             columns: vec![
-//                 centered_column("N°", 10.0),
-//                 left_column("Détenue", 45.0),
-//                 centered_column("Date", 28.0),
-//                 left_column("Origine", 52.0),
-//                 left_column("Destination", 52.0),
-//                 left_column("Motif", 48.0),
-//             ],
-//             rows,
-//             empty_message: "Aucun transfert enregistré".into(),
-//         },
-//     )
-// }
-
 #[tauri::command]
 pub async fn export_releases_report_pdf(
     app: AppHandle,
@@ -283,45 +260,6 @@ pub async fn export_releases_report_pdf(
     )
 }
 
-// #[tauri::command]
-// pub async fn export_releases_report_pdf(
-//     app: AppHandle,
-//     state: State<'_, AppState>,
-// ) -> Result<String, String> {
-//     let releases = movements::get_releases(&state.db).await?;
-//     let rows = releases
-//         .iter()
-//         .enumerate()
-//         .map(|(index, release)| {
-//             vec![
-//                 (index + 1).to_string(),
-//                 release.inmate_name.clone(),
-//                 release.release_date.clone(),
-//                 release.reason.clone(),
-//                 release.notes.clone().unwrap_or_else(|| "—".into()),
-//             ]
-//         })
-//         .collect();
-
-//     save_report(
-//         &app,
-//         "Liste des libérations",
-//         "liste_liberations",
-//         PmsListReport {
-//             title: "LISTE DES LIBÉRATIONS".into(),
-//             description: "Historique des libérations enregistrées.".into(),
-//             columns: vec![
-//                 centered_column("N°", 10.0),
-//                 left_column("Détenue", 52.0),
-//                 centered_column("Date", 30.0),
-//                 left_column("Motif", 70.0),
-//                 left_column("Notes", 70.0),
-//             ],
-//             rows,
-//             empty_message: "Aucune libération enregistrée".into(),
-//         },
-//     )
-// }
 
 fn format_statut_plainte(statut: &str) -> String {
     match statut {
@@ -398,127 +336,28 @@ pub async fn export_plaintes_report_pdf(
     )
 }
 
-// #[tauri::command]
-// pub async fn export_plaintes_report_pdf(
-//     app: AppHandle,
-//     state: State<'_, AppState>,
-// ) -> Result<String, String> {
-//     let plaintes = reports::get_plaintes_report_rows(&state.db).await?;
-
-//     let rows = plaintes
-//         .iter()
-//         .enumerate()
-//         .map(|(index, plainte)| {
-//             vec![
-//                 (index + 1).to_string(),
-//                 plainte.objet.clone(),
-//                 plainte.date_faits.clone(),
-//                 plainte.lieu_faits.clone(),
-//                 format_statut_plainte(&plainte.statut),
-//                 plainte.description.clone(),
-//             ]
-//         })
-//         .collect();
-
-//     save_report(
-//         &app,
-//         "Liste des plaintes",
-//         "liste_plaintes",
-//         PmsListReport {
-//             title: "LISTE DES PLAINTES".into(),
-//             description:
-//                 "Liste des plaintes et des faits signalés dans l'établissement pénitentiaire."
-//                     .into(),
-//             columns: vec![
-//                 centered_column("N°", 9.0),
-//                 left_column("Objet", 42.0),
-//                 centered_column("Date", 27.0),
-//                 left_column("Lieu des faits", 42.0),
-//                 centered_column("Statut", 32.0),
-//                 left_column("Description", 78.0),
-//             ],
-//             rows,
-//             empty_message: "Aucune plainte enregistrée".into(),
-//         },
-//     )
-// }
-
-
 #[tauri::command]
 pub async fn export_inmate_fiche_pdf(
     app: AppHandle,
     state: State<'_, AppState>,
     inmate_id: String,
 ) -> Result<String, String> {
+    let inmate = get_inmate_for_fiche(&state.db, &inmate_id)
+        .await
+        .map_err(|e| format!("Erreur récupération détenu : {}", e))?;
 
-    // =====================================================
-    // RÉCUPÉRER LES DONNÉES DU DÉTENU
-    // =====================================================
-
-    let inmate = get_inmate_for_fiche(
-        &state.db,
-        &inmate_id,
-    )
-    .await
-    .map_err(|e| {
-        format!("Erreur récupération détenu : {}", e)
-    })?;
-
-
-    // =====================================================
-    // RENDERER
-    // =====================================================
-
-    let mut renderer =
-        PdfRenderer::new_portrait(
-            &app,
-            "Fiche détenu",
-        )?;
-
-    // =====================================================
-    // LAYOUT
-    // =====================================================
-
-
+    let mut renderer = PdfRenderer::new_portrait(&app, "Fiche détenu")?;
     renderer.pdf.without_layout();
 
-    // =====================================================
-    // RAPPORT
-    // =====================================================
-
-    renderer.render(
-        InmateFicheReport {
-            inmate,
-        },
-    )?;
-
-    // =====================================================
-    // NOM DU FICHIER
-    // =====================================================
+    renderer.render(InmateFicheReport { inmate })?;
 
     let filename = format!(
         "fiche_detenu_{}_{}.pdf",
         inmate_id,
         Local::now().format("%Y%m%d_%H%M%S"),
     );
-
-    // =====================================================
-    // CHEMIN
-    // =====================================================
-
-    let path =
-        get_pdf_directory(&app)?
-            .join(filename);
-
-    // =====================================================
-    // SAUVEGARDE
-    // =====================================================
-
+    let path = get_pdf_directory(&app)?.join(filename);
     renderer.save(&path)?;
 
-    Ok(
-        path
-            .to_string_lossy()
-            .to_string()
-    )
+    Ok(path.to_string_lossy().to_string())
 }
